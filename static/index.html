@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TerraView — Full AWS Architecture & Plan Diff Visualizer</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.03);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.3);
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 0.5);
+        }
+        .node-card {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .node-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px -10px rgba(14, 165, 233, 0.25);
+        }
+        #dag-transform-layer {
+            transform-origin: 0 0;
+            transition: transform 0.1s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+            animation: fadeIn 0.25s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="h-full bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 flex flex-col overflow-hidden transition-colors duration-300">
+
+    <!-- Top Navigation Bar -->
+    <header class="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl px-6 flex items-center justify-between shrink-0 z-20">
+        <div class="flex items-center space-x-4">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-yellow-500 flex items-center justify-center shadow-lg shadow-orange-500/20 text-white shrink-0">
+                <i data-lucide="cloud" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-tight bg-gradient-to-r from-amber-600 to-orange-600 dark:from-amber-400 dark:to-orange-400 bg-clip-text text-transparent">TerraView AWS</h1>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Full AWS Multi-Module Plan & Detailed Diff Explorer</p>
+            </div>
+        </div>
+
+        <!-- Top Header Filters & Search -->
+        <div class="hidden xl:flex items-center space-x-3">
+            <div class="relative">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5"></i>
+                <input type="text" id="search-input" oninput="filterGraph(this.value)" placeholder="Search AWS resources..." class="w-64 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-orange-500 transition shadow-sm">
+            </div>
+            <div class="flex items-center space-x-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+                <button onclick="filterByAction('all')" id="filter-btn-all" class="px-3 py-1.5 rounded-lg bg-orange-600 text-white font-medium transition shadow-sm">All</button>
+                <button onclick="filterByAction('create')" id="filter-btn-create" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Add (+)</button>
+                <button onclick="filterByAction('update')" id="filter-btn-update" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Modify (~)</button>
+                <button onclick="filterByAction('no-op')" id="filter-btn-no-op" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Existing</button>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <!-- Stats badges for Actions -->
+            <div class="hidden lg:flex items-center space-x-2 text-xs">
+                <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                    <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                    <span class="text-slate-500 dark:text-slate-400">Existing:</span>
+                    <span id="stat-noop" class="font-bold text-slate-700 dark:text-slate-300">0</span>
+                </div>
+                <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="text-slate-500 dark:text-slate-400">To Add (+):</span>
+                    <span id="stat-create" class="font-bold text-emerald-600 dark:text-emerald-400">0</span>
+                </div>
+                <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                    <span class="text-slate-500 dark:text-slate-400">To Modify (~):</span>
+                    <span id="stat-update" class="font-bold text-amber-600 dark:text-amber-400">0</span>
+                </div>
+            </div>
+
+            <!-- Theme Toggle Button -->
+            <button onclick="toggleTheme()" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition" title="Toggle Theme">
+                <i id="theme-icon" data-lucide="sun" class="w-4 h-4"></i>
+            </button>
+
+            <button onclick="openUploadModal()" class="flex items-center space-x-2 px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-semibold text-sm transition shadow-lg shadow-orange-600/20 active:scale-95">
+                <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                <span>Import Plan JSON</span>
+            </button>
+            <button onclick="loadDemoData()" class="flex items-center space-x-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-medium text-sm transition">
+                <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i>
+                <span>AWS Demo</span>
+            </button>
+            <button onclick="toggleRawJson()" id="raw-json-btn" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition" title="View Raw JSON">
+                <i data-lucide="code-2" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Raw JSON Viewer Panel -->
+    <div id="raw-json-panel" class="absolute bottom-0 left-0 right-0 h-[45vh] bg-slate-900 dark:bg-black/90 border-t border-slate-200 dark:border-slate-800 z-40 transform translate-y-full transition-transform duration-300 flex flex-col hidden">
+        <div class="h-10 border-b border-slate-200 dark:border-slate-800 bg-slate-800 dark:bg-slate-950 flex items-center justify-between px-4">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="file-code" class="w-4 h-4 text-cyan-400"></i>
+                <span class="text-xs font-bold text-slate-300 dark:text-slate-100 uppercase tracking-wider">Raw Plan JSON</span>
+            </div>
+            <button onclick="toggleRawJson()" class="p-2 hover:bg-slate-700 dark:hover:bg-slate-800 rounded-md text-slate-400 hover:text-white transition">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+        <div class="flex-1 overflow-auto custom-scrollbar p-0">
+            <pre id="raw-json-content" class="h-full text-xs font-mono text-slate-300 dark:text-slate-400 p-4 m-0 whitespace-pre-wrap overflow-auto"></pre>
+        </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="flex-1 flex relative overflow-hidden">
+        
+        <!-- Canvas & DAG View Area with Zoom & Pan -->
+        <div class="flex-1 relative bg-slate-50 dark:bg-slate-950 overflow-hidden cursor-grab active:cursor-grabbing" id="canvas-container" onmousedown="startPan(event)" onmousemove="doPan(event)" onmouseup="endPan()" onwheel="handleZoom(event)">
+            
+            <!-- Zoom & Pan Floating Controls -->
+            <div class="absolute bottom-6 left-6 flex items-center space-x-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-2 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 z-30">
+                <button onclick="zoomIn()" title="Zoom In" class="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition">
+                    <i data-lucide="zoom-in" class="w-4 h-4"></i>
+                </button>
+                <div class="w-px h-6 bg-slate-200 dark:bg-slate-800"></div>
+                <button onclick="zoomOut()" title="Zoom Out" class="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition">
+                    <i data-lucide="zoom-out" class="w-4 h-4"></i>
+                </button>
+                <div class="w-px h-6 bg-slate-200 dark:bg-slate-800"></div>
+                <button onclick="resetZoom()" title="Reset Zoom" class="px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium text-orange-600 dark:text-orange-400 transition">
+                    Reset (100%)
+                </button>
+            </div>
+
+            <!-- Transform Layer for Zoom / Pan -->
+            <div id="dag-transform-layer" class="absolute inset-0 min-w-[2000px] min-h-[2000px] p-16">
+                <!-- SVG Edges Layer -->
+                <svg id="dag-svg" class="absolute inset-0 w-full h-full pointer-events-none z-0"></svg>
+                <!-- HTML Nodes Layer -->
+                <div id="dag-nodes" class="relative z-10 flex space-x-24 items-start"></div>
+            </div>
+        </div>
+
+        <!-- Sidebar Inspector (Resizable) -->
+        <div id="sidebar" class="w-[420px] min-w-[300px] resize horizontal overflow-x-hidden overflow-y-auto custom-scrollbar bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-l border-slate-200 dark:border-slate-800 flex flex-col z-30 transition-all duration-300 shrink-0 shadow-2xl">
+            <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="file-diff" class="w-5 h-5 text-orange-600 dark:text-orange-400"></i>
+                    <h2 class="font-semibold text-slate-800 dark:text-slate-200">Resource Diff Inspector</h2>
+                </div>
+                <button onclick="clearSelection()" class="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition">Clear</button>
+            </div>
+
+            <div id="sidebar-content" class="flex-1 p-5 overflow-y-auto custom-scrollbar space-y-4">
+                <div class="text-center py-24 text-slate-400 space-y-3">
+                    <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center mx-auto text-slate-400">
+                        <i data-lucide="mouse-pointer-click" class="w-6 h-6"></i>
+                    </div>
+                    <p class="text-sm">Click on any AWS resource node to inspect exact attribute changes (before vs after), plan status, and dependencies.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="upload-modal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-lg p-6 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 m-4 space-y-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-600 dark:text-orange-400">
+                        <i data-lucide="file-json" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg text-slate-900 dark:text-slate-100">Import AWS Terraform Plan</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Drag & drop JSON plan or paste contents</p>
+                    </div>
+                </div>
+                <button onclick="closeUploadModal()" class="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Dropzone -->
+            <div id="dropzone" class="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-orange-500 rounded-2xl p-8 text-center cursor-pointer transition bg-slate-50 dark:bg-slate-900/40 relative">
+                <input type="file" id="file-input" accept=".json" onchange="handleFileSelect(event)" class="absolute inset-0 opacity-0 cursor-pointer">
+                <div class="space-y-3">
+                    <div class="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center mx-auto text-orange-600 dark:text-orange-400">
+                        <i data-lucide="upload" class="w-6 h-6"></i>
+                    </div>
+                    <div class="text-sm text-slate-700 dark:text-slate-300 font-medium">Drop JSON plan here or <span class="text-orange-600 dark:text-orange-400 underline">browse</span></div>
+                    <div class="text-xs text-slate-400">Supports <code class="text-slate-600 dark:text-slate-300">terraform show -json</code></div>
+                </div>
+            </div>
+
+            <div class="relative">
+                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200 dark:border-slate-800"></div></div>
+                <div class="relative flex justify-center text-xs uppercase"><span class="bg-white dark:bg-slate-900 px-3 text-slate-400">Or paste JSON</span></div>
+            </div>
+
+            <textarea id="json-textarea" rows="5" placeholder="Paste your Terraform JSON here..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 font-mono focus:outline-none focus:border-orange-500 transition custom-scrollbar"></textarea>
+
+            <div class="flex items-center justify-end space-x-3">
+                <button onclick="closeUploadModal()" class="px-4 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-medium transition">Cancel</button>
+                <button onclick="submitJsonText()" class="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-semibold text-sm transition shadow-lg shadow-orange-600/20">Visualize</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script with embedded data support -->
+    <script id="terraview-embedded-data" type="application/json" style="display:none;"></script>
+    <script>
+        let currentData = null;
+        let selectedNodeId = null;
+        let activeFilter = 'all';
+        let searchQuery = '';
+
+        let scale = 1;
+        let panX = 50;
+        let panY = 50;
+        let isPanning = false;
+        let startX = 0;
+        let startY = 0;
+
+        const awsTypeIcons = {
+            aws_vpc: 'network',
+            aws_subnet: 'git-commit',
+            aws_internet_gateway: 'globe',
+            aws_route_table: 'map',
+            aws_security_group: 'shield',
+            aws_iam_role: 'key',
+            aws_db_subnet_group: 'database',
+            aws_db_instance: 'database',
+            aws_eks_cluster: 'server',
+            aws_eks_node_group: 'cpu',
+            default: 'cloud'
+        };
+
+        const actionStyles = {
+            create: {
+                border: 'border-emerald-500 shadow-emerald-500/10 hover:border-emerald-400',
+                badge: '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500 text-white flex items-center space-x-1"><i data-lucide="plus" class="w-3 h-3"></i><span>ADD (+)</span></span>',
+                bgLight: 'bg-emerald-50/70 dark:bg-emerald-950/30'
+            },
+            update: {
+                border: 'border-amber-500 shadow-amber-500/10 hover:border-amber-400',
+                badge: '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white flex items-center space-x-1"><i data-lucide="refresh-cw" class="w-3 h-3"></i><span>MODIFY (~)</span></span>',
+                bgLight: 'bg-amber-50/70 dark:bg-amber-950/30'
+            },
+            delete: {
+                border: 'border-red-500 shadow-red-500/10 hover:border-red-400',
+                badge: '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500 text-white flex items-center space-x-1"><i data-lucide="trash-2" class="w-3 h-3"></i><span>DESTROY (-)</span></span>',
+                bgLight: 'bg-red-50/70 dark:bg-red-950/30'
+            },            'no-op': {
+                border: 'border-slate-300 dark:border-slate-700 hover:border-slate-400',
+                badge: '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">EXISTING</span>',
+                bgLight: 'bg-white dark:bg-slate-900/90'
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.theme === 'dark') {
+                document.documentElement.classList.add('dark');
+                updateThemeIcon(true);
+            } else {
+                document.documentElement.classList.remove('dark');
+                updateThemeIcon(false);
+            }
+            lucide.createIcons();
+            loadDemoData();
+        });
+
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.theme = isDark ? 'dark' : 'light';
+            updateThemeIcon(isDark);
+            if (currentData) renderDAG(currentData);
+        }
+
+        function toggleRawJson() {
+            const panel = document.getElementById('raw-json-panel');
+            const btn = document.getElementById('raw-json-btn');
+            const isHidden = panel.classList.contains('hidden');
+            if (isHidden) {
+                panel.classList.remove('hidden');
+                panel.classList.remove('translate-y-full');
+                btn.classList.add('text-orange-600', 'dark:text-orange-400');
+                if (currentData) {
+                    document.getElementById('raw-json-content').textContent = JSON.stringify(currentData, null, 2);
+                }
+            } else {
+                panel.classList.add('hidden');
+                panel.classList.add('translate-y-full');
+                btn.classList.remove('text-orange-600', 'dark:text-orange-400');
+            }
+            lucide.createIcons();
+        }
+
+        function updateThemeIcon(isDark) {
+            const icon = document.getElementById('theme-icon');
+            icon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+            lucide.createIcons();
+        }
+
+        function startPan(e) {
+            if (e.target.closest('.node-card') || e.target.closest('button') || e.target.closest('input')) return;
+            isPanning = true;
+            startX = e.clientX - panX;
+            startY = e.clientY - panY;
+        }
+
+        function doPan(e) {
+            if (!isPanning) return;
+            panX = e.clientX - startX;
+            panY = e.clientY - startY;
+            updateTransform();
+        }
+
+        function endPan() {
+            isPanning = false;
+        }
+
+        function handleZoom(e) {
+            e.preventDefault();
+            const zoomIntensity = 0.1;
+            if (e.deltaY < 0) {
+                scale = Math.min(scale * (1 + zoomIntensity), 2.5);
+            } else {
+                scale = Math.max(scale * (1 - zoomIntensity), 0.4);
+            }
+            updateTransform();
+        }
+
+        function zoomIn() {
+            scale = Math.min(scale * 1.2, 2.5);
+            updateTransform();
+        }
+
+        function zoomOut() {
+            scale = Math.max(scale * 0.8, 0.4);
+            updateTransform();
+        }
+
+        function resetZoom() {
+            scale = 1;
+            panX = 50;
+            panY = 50;
+            updateTransform();
+        }
+
+        function updateTransform() {
+            const layer = document.getElementById('dag-transform-layer');
+            layer.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+        }
+
+        async function loadDemoData() {
+            // Check for embedded data first (static HTML mode)
+            const embedded = document.getElementById('terraview-embedded-data');
+            if (embedded && embedded.textContent.trim()) {
+                try {
+                    const data = JSON.parse(embedded.textContent);
+                    currentData = data;
+                    renderDAG(data);
+                    return;
+                } catch (e) {
+                    console.error("Invalid embedded data:", e);
+                }
+            }
+
+            try {
+                const res = await fetch('/api/graph');
+                const data = await res.json();
+                currentData = data;
+                renderDAG(data);
+            } catch (err) {
+                console.error("Error loading demo data:", err);
+            }
+        }
+
+        async function submitJsonText() {
+            const text = document.getElementById('json-textarea').value.trim();
+            if (!text) return alert("Please enter valid JSON.");
+            try {
+                const res = await fetch('/api/graph', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: text
+                });
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                currentData = data;
+                renderDAG(data);
+                closeUploadModal();
+            } catch (err) {
+                alert("Error: " + err.message);
+            }
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                document.getElementById('json-textarea').value = e.target.result;
+                await submitJsonText();
+            };
+            reader.readAsText(file);
+        }
+
+        function renderDAG(data) {
+            if (!data || !data.nodes) return;
+
+            const actions = data.stats.actions || {};
+            document.getElementById('stat-noop').textContent = actions['no-op'] || 0;
+            document.getElementById('stat-create').textContent = actions['create'] || 0;
+            document.getElementById('stat-update').textContent = actions['update'] || 0;
+
+            let nodes = data.nodes;
+            if (activeFilter !== 'all') {
+                nodes = nodes.filter(n => n.action === activeFilter);
+            }
+            if (searchQuery.trim() !== '') {
+                const q = searchQuery.toLowerCase();
+                nodes = nodes.filter(n => n.id.toLowerCase().includes(q) || n.type.toLowerCase().includes(q) || n.name.toLowerCase().includes(q));
+            }
+
+            const nodeIds = new Set(nodes.map(n => n.id));
+            let edges = (data.edges || []).filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
+
+            const levels = computeLevels(nodes, edges);
+
+            const dagNodesContainer = document.getElementById('dag-nodes');
+            dagNodesContainer.innerHTML = '';
+
+            levels.forEach((levelNodes, levelIdx) => {
+                const colDiv = document.createElement('div');
+                colDiv.className = 'flex flex-col space-y-6 w-80 shrink-0';
+                
+                const colHeader = document.createElement('div');
+                colHeader.className = 'text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 pb-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between';
+                colHeader.innerHTML = `<span>Deployment Level ${levelIdx}</span> <span class="bg-white dark:bg-slate-900 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-800 text-[10px] text-slate-600 dark:text-slate-300 shadow-sm">${levelNodes.length}</span>`;
+                colDiv.appendChild(colHeader);
+
+                const listDiv = document.createElement('div');
+                listDiv.className = 'flex flex-col space-y-4';
+
+                levelNodes.forEach(node => {
+                    const card = document.createElement('div');
+                    const isSelected = selectedNodeId === node.id;
+                    const style = actionStyles[node.action] || actionStyles['no-op'];
+                    const selectedRing = isSelected ? 'ring-4 ring-orange-500 shadow-2xl' : '';
+                    const iconName = awsTypeIcons[node.type] || awsTypeIcons.default;
+
+                    card.className = `node-card ${style.bgLight} backdrop-blur-md p-4 rounded-2xl border-2 ${style.border} ${selectedRing} cursor-pointer relative group shadow-sm`;
+                    card.setAttribute('data-id', node.id);
+                    card.onclick = () => selectNode(node.id);
+
+                    card.innerHTML = `
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center">
+                                    <i data-lucide="${iconName}" class="w-4 h-4"></i>
+                                </div>
+                                <span class="text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide truncate max-w-[130px]">${node.type}</span>
+                            </div>
+                            ${style.badge}
+                        </div>
+                        <div class="font-bold text-xs text-slate-900 dark:text-slate-100 font-mono truncate mb-1" title="${node.id}">${node.id}</div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-800">
+                            <span>AWS Provider</span>
+                            <span class="text-orange-600 dark:text-orange-400 font-semibold text-[10px]">AWS Cloud</span>
+                        </div>
+                    `;
+                    listDiv.appendChild(card);
+                });
+
+                colDiv.appendChild(listDiv);
+                dagNodesContainer.appendChild(colDiv);
+            });
+
+            setTimeout(() => {
+                drawSvgEdges(edges);
+                lucide.createIcons();
+            }, 50);
+        }
+
+        function computeLevels(nodes, edges) {
+            const inDegree = {};
+            const adj = {};
+            nodes.forEach(n => {
+                inDegree[n.id] = 0;
+                adj[n.id] = [];
+            });
+
+            edges.forEach(e => {
+                if (adj[e.source]) adj[e.source].push(e.target);
+                if (inDegree[e.target] !== undefined) inDegree[e.target]++;
+            });
+
+            let currentLevel = nodes.filter(n => inDegree[n.id] === 0);
+            const remaining = new Set(nodes.map(n => n.id));
+            currentLevel.forEach(n => remaining.delete(n.id));
+
+            const levels = [];
+            if (currentLevel.length > 0) levels.push(currentLevel);
+
+            while (remaining.size > 0 && currentLevel.length > 0) {
+                const nextLevel = [];
+                currentLevel.forEach(u => {
+                    (adj[u.id] || []).forEach(v => {
+                        if (remaining.has(v)) {
+                            inDegree[v]--;
+                            if (inDegree[v] === 0) {
+                                nextLevel.push(nodes.find(n => n.id === v));
+                                remaining.delete(v);
+                            }
+                        }
+                    });
+                });
+                if (nextLevel.length > 0) {
+                    levels.push(nextLevel);
+                    currentLevel = nextLevel;
+                } else {
+                    const leftover = nodes.filter(n => remaining.has(n.id));
+                    if (leftover.length > 0) {
+                        levels.push(leftover);
+                        leftover.forEach(n => remaining.delete(n.id));
+                    }
+                    break;
+                }
+            }
+
+            const addedIds = new Set(levels.flat().map(n => n.id));
+            const unadded = nodes.filter(n => !addedIds.has(n.id));
+            if (unadded.length > 0) {
+                levels.push(unadded);
+            }
+
+            return levels.length > 0 ? levels : [nodes];
+        }
+
+        function drawSvgEdges(edges) {
+            const svg = document.getElementById('dag-svg');
+            const canvas = document.getElementById('dag-transform-layer');
+            if (!svg || !canvas) return;
+
+            const canvasRect = canvas.getBoundingClientRect();
+            svg.setAttribute('width', canvas.scrollWidth);
+            svg.setAttribute('height', canvas.scrollHeight);
+            svg.innerHTML = '';
+
+            const isDark = document.documentElement.classList.contains('dark');
+            const strokeColor = isDark ? 'rgba(100, 116, 139, 0.4)' : 'rgba(148, 163, 184, 0.6)';
+            const arrowFill = isDark ? 'rgba(100, 116, 139, 0.7)' : 'rgba(148, 163, 184, 0.9)';
+
+            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            defs.innerHTML = `
+                <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1 L 10 5 L 0 9 z" fill="${arrowFill}"></path>
+                </marker>
+                <marker id="arrow-active" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#f97316"></path>
+                </marker>
+            `;
+            svg.appendChild(defs);
+
+            edges.forEach(e => {
+                const sourceEl = document.querySelector(`[data-id="${e.source}"]`);
+                const targetEl = document.querySelector(`[data-id="${e.target}"]`);
+                if (!sourceEl || !targetEl) return;
+
+                const sRect = sourceEl.getBoundingClientRect();
+                const tRect = targetEl.getBoundingClientRect();
+
+                const x1 = (sRect.right - canvasRect.left) / scale;
+                const y1 = (sRect.top + sRect.height / 2 - canvasRect.top) / scale;
+                const x2 = (tRect.left - canvasRect.left) / scale;
+                const y2 = (tRect.top + tRect.height / 2 - canvasRect.top) / scale;
+
+                const dx = Math.abs(x2 - x1) * 0.5;
+                const pathData = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const isActive = selectedNodeId && (e.source === selectedNodeId || e.target === selectedNodeId);
+
+                path.setAttribute('d', pathData);
+                path.setAttribute('fill', 'none');
+                path.setAttribute('stroke', isActive ? '#f97316' : strokeColor);
+                path.setAttribute('stroke-width', isActive ? '2.5' : '1.5');
+                path.setAttribute('marker-end', isActive ? 'url(#arrow-active)' : 'url(#arrow)');
+
+                svg.appendChild(path);
+            });
+        }
+
+        function selectNode(id) {
+            selectedNodeId = id;
+            renderDAG(currentData);
+            showInspector(id);
+        }
+
+        function showInspector(nodeId) {
+            if (!currentData || !currentData.nodes) return;
+            const node = currentData.nodes.find(n => n.id === nodeId);
+            if (!node) return;
+
+            const sidebarContent = document.getElementById('sidebar-content');
+            const upstream = (currentData.edges || []).filter(e => e.target === nodeId).map(e => e.source);
+            const downstream = (currentData.edges || []).filter(e => e.source === nodeId).map(e => e.target);
+            const style = actionStyles[node.action] || actionStyles['no-op'];
+
+            let diffHtml = '';
+            if (node.action === 'create') {
+                const props = node.after || {};
+                const rows = Object.entries(props).map(([k, v]) => `
+                    <div class="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800 text-xs font-mono">
+                        <span class="text-slate-500">${k}:</span>
+                        <span class="text-emerald-600 dark:text-emerald-400 font-bold">+ ${JSON.stringify(v)}</span>
+                    </div>
+                `).join('') || '<span class="text-xs text-slate-400 italic">No attributes specified</span>';
+
+                diffHtml = `
+                    <div class="bg-emerald-500/5 dark:bg-emerald-950/20 p-4 rounded-xl border border-emerald-500/30 space-y-2">
+                        <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block mb-2">Attributes to be Added</span>
+                        ${rows}
+                    </div>
+                `;
+            } else if (node.action === 'update') {
+                const before = node.before || {};
+                const after = node.after || {};
+                const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+                let rows = '';
+                allKeys.forEach(k => {
+                    const bVal = JSON.stringify(before[k]);
+                    const aVal = JSON.stringify(after[k]);
+                    if (bVal !== aVal) {
+                        rows += `
+                            <div class="py-1.5 border-b border-slate-100 dark:border-slate-800 text-xs font-mono space-y-1">
+                                <span class="text-slate-700 dark:text-slate-300 font-semibold block">${k}:</span>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div class="bg-red-500/10 text-red-600 dark:text-red-400 p-1.5 rounded" title="Before: ${bVal}">- ${bVal}</div>
+                                    <div class="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 p-1.5 rounded" title="After: ${aVal}">+ ${aVal}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+                if (!rows) {
+                    rows = '<span class="text-xs text-slate-400 italic">Metadata update</span>';
+                }
+
+                diffHtml = `
+                    <div class="bg-amber-500/5 dark:bg-amber-950/20 p-4 rounded-xl border border-amber-500/30 space-y-2">
+                        <span class="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block mb-2">Attribute Changes (~ Modified)</span>
+                        ${rows}
+                    </div>
+                `;
+            } else {
+                const props = node.after || node.before || {};
+                const rows = Object.entries(props).map(([k, v]) => `
+                    <div class="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800 text-xs font-mono">
+                        <span class="text-slate-500">${k}:</span>
+                        <span class="text-slate-700 dark:text-slate-300">${JSON.stringify(v)}</span>
+                    </div>
+                `).join('') || '<span class="text-xs text-slate-400 italic">No attributes</span>';
+
+                diffHtml = `
+                    <div class="bg-slate-100 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-2">Existing Attributes</span>
+                        ${rows}
+                    </div>
+                `;
+            }
+
+            const renderList = (items) => {
+                if (items.length === 0) return '<span class="text-xs text-slate-400 italic">None</span>';
+                return items.map(i => `<code class="text-xs text-orange-600 dark:text-orange-300 bg-slate-100 dark:bg-slate-950 px-2 py-1 rounded-lg block border border-slate-200 dark:border-slate-800 break-all mb-1">${i}</code>`).join('');
+            };
+
+            // Atlantis / targeted action helpers
+            const atlantisCmd = (n) => {
+                const t = escapeHtml(n.id);
+                if (n.action === 'delete') return `terraform destroy -target=${t}`;
+                if (n.action === 'create') return `terraform plan -target=${t}\nterraform apply -target=${t}`;
+                return `terraform plan -target=${t}`;
+            };
+
+            const targetCmds = `
+                <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Atlantis / Targeted Plan</span>
+                        <label class="flex items-center space-x-1 cursor-pointer">
+                            <input type="checkbox" class="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 bg-slate-700 border-slate-600" onchange="this.nextElementSibling.classList.toggle('hidden')">
+                            <span class="text-[10px] text-slate-500 dark:text-slate-400">Show Atlantis command</span>
+                        </label>
+                    </div>
+
+                    <!-- Individual quick buttons -->
+                    <div class="flex flex-wrap gap-1.5 mb-1">
+                        <button onclick="copyToClipboard('terraform plan -target=${escapeHtml(node.id)}')" class="text-xs px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition shadow-sm">plan -target</button>
+                        ${node.action !== 'delete' ? `<button onclick="copyToClipboard('terraform apply -target=${escapeHtml(node.id)}')" class="text-xs px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition shadow-sm">apply -target</button>` : ``}
+                        ${node.action === 'delete' ? `<button onclick="copyToClipboard('terraform destroy -target=${escapeHtml(node.id)}')" class="text-xs px-2 py-1 rounded bg-red-50 text-red-700 border border-red-300 hover:bg-red-100 hover:text-red-900 transition shadow-sm">destroy -target</button>` : ``}
+                    </div>
+
+                    <!-- Full Atlantis command block -->
+                    <div class="hidden">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-[9px] text-slate-400 italic">Full command for MR:</span>
+                            <button onclick="copyToClipboard(this.parentElement.parentElement.querySelector('pre').textContent)" class="text-[9px] text-orange-600 dark:text-orange-400 hover:underline">copy</button>
+                        </div>
+                        <pre class="text-[10px] font-mono bg-white dark:bg-slate-950 p-2 rounded border border-slate-200 dark:border-slate-700 overflow-x-auto break-all text-slate-700 dark:text-slate-300 leading-tight">${atlantisCmd(node)}</pre>
+                    </div>
+
+                    <div class="flex items-center space-x-2 mt-1">
+                        <button onclick="copyToClipboard('terraform import ${escapeHtml(node.id)} &lt;RESOURCE_ID&gt;')" class="text-xs px-2 py-1 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition shadow-sm">import</button>
+                        <span class="text-[9px] text-slate-400 italic">replace &lt;RESOURCE_ID&gt;</span>
+                    </div>
+                </div>
+            `;
+
+            sidebarContent.innerHTML = `
+                <div class="space-y-5 animate-fadeIn">
+                    <div>
+                        <div class="text-xs text-orange-600 dark:text-orange-400 font-semibold uppercase tracking-wider mb-1">${node.type}</div>
+                        <h3 class="font-bold text-sm text-slate-900 dark:text-slate-100 break-all font-mono bg-slate-100 dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">${escapeHtml(node.id)}</h3>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                        <div class="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                            <span class="text-slate-400 block mb-1">Provider</span>
+                            <span class="font-medium text-slate-700 dark:text-slate-200">AWS (Amazon)</span>
+                        </div>
+                        <div class="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                            <span class="text-slate-400 block mb-1">Plan Action</span>
+                            ${style.badge}
+                        </div>
+                    </div>
+
+                    ${diffHtml}
+
+                    ${targetCmds}
+
+                    <div class="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+                        <span class="text-xs text-slate-500 dark:text-slate-400 font-medium block">Upstream (Depends on)</span>
+                        ${renderList(upstream)}
+                    </div>
+
+                    <div class="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+                        <span class="text-xs text-slate-500 dark:text-slate-400 font-medium block">Downstream (Required by)</span>
+                        ${renderList(downstream)}
+                    </div>
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            return String(text).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.querySelector(`button[onclick*="${escapeJs(text)}"]`);
+                if (btn) {
+                    const original = btn.innerHTML;
+                    btn.innerHTML = `<i data-lucide="check" class="w-3 h-3 text-emerald-600"></i>`;
+                    btn.classList.add('bg-emerald-100', 'text-emerald-700');
+                    setTimeout(() => {
+                        btn.innerHTML = original;
+                        btn.classList.remove('bg-emerald-100', 'text-emerald-700');
+                        lucide.createIcons();
+                    }, 1200);
+                }
+                lucide.createIcons();
+            });
+        }
+
+        function escapeJs(text) {
+            return String(text).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        }
+
+        function clearSelection() {
+            selectedNodeId = null;
+            if (currentData) renderDAG(currentData);
+            const sidebarContent = document.getElementById('sidebar-content');
+            sidebarContent.innerHTML = `
+                <div class="text-center py-24 text-slate-400 space-y-3">
+                    <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center mx-auto text-slate-400">
+                        <i data-lucide="mouse-pointer-click" class="w-6 h-6"></i>
+                    </div>
+                    <p class="text-sm">Click on any AWS resource node to inspect exact attribute changes (before vs after), plan status, and dependencies.</p>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function filterByAction(action) {
+            activeFilter = action;
+            // Update active button styling
+            ['all', 'create', 'update', 'no-op'].forEach(act => {
+                const btn = document.getElementById(`filter-btn-${act}`);
+                if (btn) {
+                    if (act === action) {
+                        btn.className = 'px-3 py-1.5 rounded-lg bg-orange-600 text-white font-medium transition shadow-sm';
+                    } else {
+                        btn.className = 'px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition';
+                    }
+                }
+            });
+            if (currentData) renderDAG(currentData);
+        }
+
+        function filterGraph(query) {
+            searchQuery = query;
+            if (currentData) renderDAG(currentData);
+        }
+
+        function openUploadModal() {
+            document.getElementById('upload-modal').classList.remove('hidden');
+        }
+
+        function closeUploadModal() {
+            document.getElementById('upload-modal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
