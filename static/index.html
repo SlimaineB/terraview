@@ -139,6 +139,12 @@
         
         <!-- Canvas & DAG View Area with Zoom & Pan -->
         <div class="flex-1 relative bg-slate-50 dark:bg-slate-950 overflow-hidden cursor-grab active:cursor-grabbing" id="canvas-container" onmousedown="startPan(event)" onmousemove="doPan(event)" onmouseup="endPan()" onwheel="handleZoom(event)">
+
+            <!-- Dependency data warning -->
+            <div id="dag-warning" class="hidden absolute top-4 left-1/2 -translate-x-1/2 z-30 max-w-lg flex items-start space-x-2 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 shadow-lg text-xs">
+                <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                <span><strong>Graphe incomplet</strong> — aucune information de dépendance Terraform (bloc <code>configuration</code> absent). Les flèches ne peuvent pas être reconstruites de façon fiable.</span>
+            </div>
             
             <!-- Zoom & Pan Floating Controls -->
             <div class="absolute bottom-6 left-6 flex items-center space-x-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-2 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 z-30">
@@ -480,6 +486,12 @@
 
         function renderDAG(data) {
             if (!data || !data.nodes) return;
+
+            const warn = document.getElementById('dag-warning');
+            if (warn) {
+                const showWarn = data.has_dependency_data === false && data.nodes.length > 1;
+                warn.classList.toggle('hidden', !showWarn);
+            }
 
             const actions = data.stats.actions || {};
             document.getElementById('stat-noop').textContent = actions['no-op'] || 0;

@@ -33,10 +33,11 @@ type GraphEdge struct {
 }
 
 type GraphData struct {
-	Nodes      []GraphNode `json:"nodes"`
-	Edges      []GraphEdge `json:"edges"`
-	Stats      Stats       `json:"stats"`
-	RawSummary string      `json:"raw_summary"`
+	Nodes             []GraphNode `json:"nodes"`
+	Edges             []GraphEdge `json:"edges"`
+	Stats             Stats       `json:"stats"`
+	RawSummary        string      `json:"raw_summary"`
+	HasDependencyData bool        `json:"has_dependency_data"`
 }
 
 type Stats struct {
@@ -58,6 +59,7 @@ func parseTerraformJSON(data []byte) (*GraphData, error) {
 
 	nodesMap := make(map[string]GraphNode)
 	var edges []GraphEdge
+	hasDependencyData := false
 	actionsCount := make(map[string]int)
 	providersCount := make(map[string]int)
 
@@ -113,10 +115,12 @@ func parseTerraformJSON(data []byte) (*GraphData, error) {
 
 		if config, ok := raw["configuration"].(map[string]interface{}); ok {
 			if rootMod, ok := config["root_module"].(map[string]interface{}); ok {
+				hasDependencyData = true
 				parseModuleDependencies(rootMod, nodesMap, &edges)
 			}
 		}
 	} else if _, ok := raw["values"].(map[string]interface{}); ok {
+		hasDependencyData = true
 		parseStateJSON(raw, nodesMap, &edges, actionsCount, providersCount)
 	} else {
 		return nil, fmt.Errorf("unrecognized terraform JSON format")
@@ -134,14 +138,34 @@ func parseTerraformJSON(data []byte) (*GraphData, error) {
 	}
 
 	return &GraphData{
-		Nodes:      nodes,
-		Edges:      edges,
-		Stats:      stats,
-		RawSummary: fmt.Sprintf("Parsed %d resources and %d dependencies successfully.", len(nodes), len(edges)),
+		Nodes:             nodes,
+		Edges:             edges,
+		Stats:             stats,
+		RawSummary:        fmt.Sprintf("Parsed %d resources and %d dependencies successfully.", len(nodes), len(edges)),
+		HasDependencyData: hasDependencyData,
 	}, nil
 }
 
 func parseModuleDependencies(mod map[string]interface{}, nodesMap map[string]GraphNode, edges *[]GraphEdge) {
+	seen := make(map[string]bool)
+	for _, e := range *edges {
+		seen[e.ID] = true
+	}
+	addEdge := func(targetAddr, addr string) {
+		if targetAddr == "" || targetAddr == addr {
+			return
+		}
+		if _, ok := nodesMap[targetAddr]; !ok {
+			return
+		}
+		edgeID := fmt.Sprintf("%s->%s", targetAddr, addr)
+		if seen[edgeID] {
+			return
+		}
+		seen[edgeID] = true
+		*edges = append(*edges, GraphEdge{ID: edgeID, Source: targetAddr, Target: addr})
+	}
+
 	if resources, ok := mod["resources"].([]interface{}); ok {
 		for _, r := range resources {
 			resMap, ok := r.(map[string]interface{})
@@ -162,19 +186,16 @@ func parseModuleDependencies(mod map[string]interface{}, nodesMap map[string]Gra
 					if refs, ok := exprMap["references"].([]interface{}); ok {
 						for _, ref := range refs {
 							refStr, _ := ref.(string)
-							targetAddr := cleanResourceAddress(refStr)
-							if targetAddr != "" && targetAddr != addr {
-								if _, targetExists := nodesMap[targetAddr]; targetExists {
-									edgeID := fmt.Sprintf("%s->%s", targetAddr, addr)
-									*edges = append(*edges, GraphEdge{
-										ID:     edgeID,
-										Source: targetAddr,
-										Target: addr,
-									})
-								}
-							}
+							addEdge(cleanResourceAddress(refStr), addr)
 						}
 					}
+				}
+			}
+
+			if deps, ok := resMap["depends_on"].([]interface{}); ok {
+				for _, d := range deps {
+					depStr, _ := d.(string)
+					addEdge(cleanResourceAddress(depStr), addr)
 				}
 			}
 		}
@@ -228,6 +249,18 @@ func parseStateModule(mod map[string]interface{}, nodesMap map[string]GraphNode,
 				Name:     resName,
 				Action:   "no-op",
 				Group:    group,
+			}
+
+			if deps, ok := resMap["depends_on"].([]interface{}); ok {
+				for _, d := range deps {
+					depStr, _ := d.(string)
+					targetAddr := cleanResourceAddress(depStr)
+					if targetAddr == "" || targetAddr == addr {
+						continue
+					}
+					edgeID := fmt.Sprintf("%s->%s", targetAddr, addr)
+					*edges = append(*edges, GraphEdge{ID: edgeID, Source: targetAddr, Target: addr})
+				}
 			}
 		}
 	}

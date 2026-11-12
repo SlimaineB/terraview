@@ -11,6 +11,7 @@ It highlights exactly what will be **added**, **modified**, or **destroyed**, sh
 | Feature | Description |
 |---------|-------------|
 | **DAG layout** | Resources arranged by dependency level (topological sort: roots → dependents) |
+| **Dependency sources** | `configuration` expression references and `depends_on`; warns when the plan JSON lacks dependency info |
 | **Zoom & pan** | Mouse wheel zoom, drag-to-pan, and reset controls |
 | **Plan action badges** | `ADD (+)` green, `MODIFY (~)` amber, `DESTROY (-)` red, `EXISTING` slate |
 | **Inline attribute diff** | Click any resource to see `before` → `after` changes side-by-side |
