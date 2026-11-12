@@ -14,6 +14,7 @@ It highlights exactly what will be **added**, **modified**, or **destroyed**, sh
 | **Zoom & pan** | Mouse wheel zoom, drag-to-pan, and reset controls |
 | **Plan action badges** | `ADD (+)` green, `MODIFY (~)` amber, `DESTROY (-)` red, `EXISTING` slate |
 | **Inline attribute diff** | Click any resource to see `before` → `after` changes side-by-side |
+| **Node quick actions** | Copy `plan` / `apply` / `destroy` `-target` commands straight from each node card |
 | **Provider-agnostic icons** | Lucide icons mapped by resource type prefix (VPC, subnet, database, VM, K8s, etc.) |
 | **Atlantis commands** | Per-resource `plan -target`, `apply -target`, `destroy -target`, `import` copy buttons |
 | **Dark / Light theme** | Light mode by default, toggle in header |
@@ -113,6 +114,7 @@ Open `terraview-report.html` in any browser — it is fully self-contained (CSS,
 
 ### Canvas
 - Resources are grouped by **Deployment Level** (topological sort by dependencies)
+- Each node has quick buttons: **plan** / **apply** (or **destroy**) to copy the targeted command, and **inspect** to open the panel
 - Click a node to open the **Resource Diff Inspector**
 - Drag the canvas background to pan; scroll to zoom; use bottom-left controls for zoom in/out/reset
 
@@ -200,6 +202,8 @@ terraview/
 ├── Makefile              # build, test, vet, fmt, lint, static, image, run, clean
 ├── Dockerfile            # Multi-stage distroless container image
 ├── README.md             # This file
+├── demo/
+│   └── demo-plan.json    # Embedded multi-cloud example plan (served by /api/graph)
 ├── static/
 │   └── index.html        # Single-file frontend (Tailwind, Lucide, custom SVG DAG)
 └── .github/workflows/

@@ -1,0 +1,233 @@
+{
+  "format_version": "1.1",
+  "terraform_version": "1.5.0",
+  "resource_changes": [
+    {
+      "address": "aws_iam_role.cluster_role",
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "name": "cluster_role",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {"actions": ["no-op"], "before": {"name": "cluster_role", "arn": "arn:aws:iam::123456789012:role/cluster"}, "after": {"name": "cluster_role", "arn": "arn:aws:iam::123456789012:role/cluster"}}
+    },
+    {
+      "address": "aws_vpc.main",
+      "mode": "managed",
+      "type": "aws_vpc",
+      "name": "main",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {"actions": ["no-op"], "before": {"cidr_block": "10.0.0.0/16", "enable_dns_hostnames": true}, "after": {"cidr_block": "10.0.0.0/16", "enable_dns_hostnames": true}}
+    },
+    {
+      "address": "module.vpc.aws_subnet.public_1",
+      "mode": "managed",
+      "type": "aws_subnet",
+      "name": "public_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {"actions": ["create"], "before": null, "after": {"cidr_block": "10.0.1.0/24", "map_public_ip_on_launch": true}}
+    },
+    {
+      "address": "module.vpc.aws_subnet.public_2",
+      "mode": "managed",
+      "type": "aws_subnet",
+      "name": "public_2",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {"actions": ["create"], "before": null, "after": {"cidr_block": "10.0.2.0/24", "map_public_ip_on_launch": true}}
+    },
+    {
+      "address": "module.vpc.aws_subnet.private_1",
+      "mode": "managed",
+      "type": "aws_subnet",
+      "name": "private_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {"actions": ["create"], "before": null, "after": {"cidr_block": "10.0.10.0/24", "map_public_ip_on_launch": false}}
+    },
+    {
+      "address": "module.vpc.aws_internet_gateway.igw",
+      "mode": "managed",
+      "type": "aws_internet_gateway",
+      "name": "igw",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {"actions": ["no-op"], "before": {"tags": {"Env": "prod"}}, "after": {"tags": {"Env": "prod"}}}
+    },
+    {
+      "address": "module.vpc.aws_route_table.public",
+      "mode": "managed",
+      "type": "aws_route_table",
+      "name": "public",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {"propagating_vgws": [], "tags": {"Name": "public-rt-old"}} ,
+        "after": {"propagating_vgws": ["vgw-12345"], "tags": {"Name": "public-rt-new"}}
+      }
+    },
+    {
+      "address": "module.security.aws_security_group.lb_sg",
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "lb_sg",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {"actions": ["create"], "before": null, "after": {"name": "lb-security-group", "ingress_ports": [80, 443]}}
+    },
+    {
+      "address": "module.security.aws_security_group.eks_nodes_sg",
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "eks_nodes_sg",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {"actions": ["create"], "before": null, "after": {"name": "eks-nodes-sg", "ingress_ports": [443, 10250]}}
+    },
+    {
+      "address": "module.database.aws_db_subnet_group.db_subnet",
+      "mode": "managed",
+      "type": "aws_db_subnet_group",
+      "name": "db_subnet",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {"actions": ["create"], "before": null, "after": {"name": "main-db-subnet"}}
+    },
+    {
+      "address": "module.database.aws_db_instance.postgres",
+      "mode": "managed",
+      "type": "aws_db_instance",
+      "name": "postgres",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {"allocated_storage": 20, "instance_class": "db.t3.micro", "engine_version": "14.5"},
+        "after": {"allocated_storage": 50, "instance_class": "db.t3.medium", "engine_version": "14.7"}
+      }
+    },
+    {
+      "address": "module.eks.aws_eks_cluster.main",
+      "mode": "managed",
+      "type": "aws_eks_cluster",
+      "name": "main",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {"actions": ["create"], "before": null, "after": {"name": "production-eks", "version": "1.28"}}
+    },
+    {
+      "address": "module.eks.aws_eks_node_group.nodes",
+      "mode": "managed",
+      "type": "aws_eks_node_group",
+      "name": "nodes",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {"actions": ["create"], "before": null, "after": {"instance_types": ["t3.xlarge"], "scaling_config": {"desired_size": 3}}}
+    },
+    {
+      "address": "aws_s3_bucket.legacy_archive_bucket",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "legacy_archive_bucket",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["delete"],
+        "before": {"bucket": "legacy-archive-2023", "acl": "private", "versioning": [{"enabled": true}], "tags": {"Env": "archive", "ManagedBy": "terraform"}, "force_destroy": false},
+        "after": null
+      }
+    },
+    {
+      "address": "aws_security_group_rule.old_ingress_rule",
+      "mode": "managed",
+      "type": "aws_security_group_rule",
+      "name": "old_ingress_rule",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["delete"],
+        "before": {"type": "ingress", "from_port": 3389, "to_port": 3389, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"], "description": "RDP from everywhere"},
+        "after": null
+      }
+    }
+  ],
+  "configuration": {
+    "root_module": {
+      "resources": [
+        {"address": "aws_iam_role.cluster_role", "expressions": {}},
+        {"address": "aws_vpc.main", "expressions": {}}
+      ],
+      "module_calls": {
+        "vpc": {
+          "module": {
+            "resources": [
+              {
+                "address": "module.vpc.aws_subnet.public_1",
+                "expressions": {"vpc_id": {"references": ["aws_vpc.main"]}}
+              },
+              {
+                "address": "module.vpc.aws_subnet.public_2",
+                "expressions": {"vpc_id": {"references": ["aws_vpc.main"]}}
+              },
+              {
+                "address": "module.vpc.aws_subnet.private_1",
+                "expressions": {"vpc_id": {"references": ["aws_vpc.main"]}}
+              },
+              {
+                "address": "module.vpc.aws_internet_gateway.igw",
+                "expressions": {"vpc_id": {"references": ["aws_vpc.main"]}}
+              },
+              {
+                "address": "module.vpc.aws_route_table.public",
+                "expressions": {
+                  "vpc_id": {"references": ["aws_vpc.main"]},
+                  "gateway_id": {"references": ["module.vpc.aws_internet_gateway.igw"]}
+                }
+              }
+            ]
+          }
+        },
+        "security": {
+          "module": {
+            "resources": [
+              {
+                "address": "module.security.aws_security_group.lb_sg",
+                "expressions": {"vpc_id": {"references": ["aws_vpc.main"]}}
+              },
+              {
+                "address": "module.security.aws_security_group.eks_nodes_sg",
+                "expressions": {"vpc_id": {"references": ["aws_vpc.main"]}}
+              }
+            ]
+          }
+        },
+        "database": {
+          "module": {
+            "resources": [
+              {
+                "address": "module.database.aws_db_subnet_group.db_subnet",
+                "expressions": {"subnet_ids": {"references": ["module.vpc.aws_subnet.private_1"]}}
+              },
+              {
+                "address": "module.database.aws_db_instance.postgres",
+                "expressions": {
+                  "db_subnet_group_name": {"references": ["module.database.aws_db_subnet_group.db_subnet"]},
+                  "vpc_security_group_ids": {"references": ["module.security.aws_security_group.eks_nodes_sg"]}
+                }
+              }
+            ]
+          }
+        },
+        "eks": {
+          "module": {
+            "resources": [
+              {
+                "address": "module.eks.aws_eks_cluster.main",
+                "expressions": {
+                  "role_arn": {"references": ["aws_iam_role.cluster_role"]},
+                  "subnet_ids": {"references": ["module.vpc.aws_subnet.public_1"]}
+                }
+              },
+              {
+                "address": "module.eks.aws_eks_node_group.nodes",
+                "expressions": {
+                  "cluster_name": {"references": ["module.eks.aws_eks_cluster.main"]},
+                  "node_role_arn": {"references": ["aws_iam_role.cluster_role"]},
+                  "subnet_ids": {"references": ["module.vpc.aws_subnet.private_1"]}
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

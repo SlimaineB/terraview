@@ -526,22 +526,41 @@
                     card.setAttribute('data-id', node.id);
                     card.onclick = () => selectNode(node.id);
 
+                    const planCmd = `terraform plan -target=${node.id}`;
+                    const applyCmd = node.action === 'delete'
+                        ? `terraform destroy -target=${node.id}`
+                        : `terraform apply -target=${node.id}`;
+
                     card.innerHTML = `
                         <div class="flex items-center justify-between mb-2">
                             <div class="flex items-center space-x-2">
                                 <div class="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center">
                                     <i data-lucide="${iconName}" class="w-4 h-4"></i>
                                 </div>
-                                <span class="text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide truncate max-w-[130px]">${node.type}</span>
+                                <span class="text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide truncate max-w-[130px]">${escapeHtml(node.type)}</span>
                             </div>
                             ${style.badge}
                         </div>
-                        <div class="font-bold text-xs text-slate-900 dark:text-slate-100 font-mono truncate mb-1" title="${node.id}">${node.id}</div>
+                        <div class="font-bold text-xs text-slate-900 dark:text-slate-100 font-mono truncate mb-1" title="${escapeHtml(node.id)}">${escapeHtml(node.id)}</div>
                         <div class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-800">
                             <span>Provider:</span>
                             <span class="text-cyan-600 dark:text-cyan-400 font-semibold text-[10px] uppercase">${escapeHtml(node.provider)}</span>
                         </div>
+                        <div class="flex items-center gap-1.5 mt-2.5">
+                            <button data-act="plan" title="Copy plan -target" class="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-cyan-50 hover:text-cyan-700 dark:hover:bg-slate-800 transition">
+                                <i data-lucide="terminal" class="w-3 h-3"></i><span>plan</span>
+                            </button>
+                            <button data-act="apply" title="${node.action === 'delete' ? 'Copy destroy -target' : 'Copy apply -target'}" class="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold ${node.action === 'delete' ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30' : 'text-slate-600 dark:text-slate-300 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-slate-800'} transition">
+                                <i data-lucide="${node.action === 'delete' ? 'trash-2' : 'play'}" class="w-3 h-3"></i><span>${node.action === 'delete' ? 'destroy' : 'apply'}</span>
+                            </button>
+                            <button data-act="inspect" title="Inspect in panel" class="flex items-center justify-center px-2 py-1.5 rounded-lg bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                                <i data-lucide="panel-right" class="w-3 h-3"></i>
+                            </button>
+                        </div>
                     `;
+                    card.querySelector('[data-act="plan"]').onclick = (e) => { e.stopPropagation(); copyAction(planCmd, e.currentTarget); };
+                    card.querySelector('[data-act="apply"]').onclick = (e) => { e.stopPropagation(); copyAction(applyCmd, e.currentTarget); };
+                    card.querySelector('[data-act="inspect"]').onclick = (e) => { e.stopPropagation(); selectNode(node.id); };
                     listDiv.appendChild(card);
                 });
 
@@ -841,6 +860,21 @@
                         lucide.createIcons();
                     }, 1200);
                 }
+                lucide.createIcons();
+            });
+        }
+
+        function copyAction(text, btn) {
+            navigator.clipboard.writeText(text).then(() => {
+                if (!btn) return;
+                const original = btn.innerHTML;
+                btn.innerHTML = `<i data-lucide="check" class="w-3 h-3 text-emerald-600"></i>`;
+                btn.classList.add('bg-emerald-100', 'text-emerald-700');
+                setTimeout(() => {
+                    btn.innerHTML = original;
+                    btn.classList.remove('bg-emerald-100', 'text-emerald-700');
+                    lucide.createIcons();
+                }, 1200);
                 lucide.createIcons();
             });
         }
