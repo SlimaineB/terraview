@@ -11,6 +11,8 @@ import (
 	"strings"
 )
 
+var version = "dev"
+
 type GraphNode struct {
 	ID       string                 `json:"id"`
 	Label    string                 `json:"label"`
@@ -320,6 +322,7 @@ func parseTerraformJSON(data []byte) (*GraphData, error) {
 			}
 
 			providerShort := extractProviderShort(providerName)
+			group := extractGroup(resType, providerName)
 
 			actionsCount[action]++
 			providersCount[providerShort]++
@@ -331,7 +334,7 @@ func parseTerraformJSON(data []byte) (*GraphData, error) {
 				Provider: providerShort,
 				Name:     resName,
 				Action:   action,
-				Group:    "aws",
+				Group:    group,
 				Before:   beforeMap,
 				After:    afterMap,
 			}
@@ -442,6 +445,7 @@ func parseStateModule(mod map[string]interface{}, nodesMap map[string]GraphNode,
 			}
 
 			providerShort := extractProviderShort(providerName)
+			group := extractGroup(resType, providerName)
 			actionsCount["no-op"]++
 			providersCount[providerShort]++
 
@@ -452,7 +456,7 @@ func parseStateModule(mod map[string]interface{}, nodesMap map[string]GraphNode,
 				Provider: providerShort,
 				Name:     resName,
 				Action:   "no-op",
-				Group:    "aws",
+				Group:    group,
 			}
 		}
 	}
@@ -485,6 +489,32 @@ func extractProviderShort(prov string) string {
 		return "aws"
 	}
 	return name
+}
+
+func extractGroup(resType, providerName string) string {
+	// Derive group from provider name first (most reliable)
+	providerLower := strings.ToLower(providerName)
+	resTypeLower := strings.ToLower(resType)
+
+	if strings.Contains(providerLower, "aws") || strings.HasPrefix(resTypeLower, "aws_") {
+		return "aws"
+	}
+	if strings.Contains(providerLower, "azurerm") || strings.Contains(providerLower, "azure") || strings.HasPrefix(resTypeLower, "azurerm_") || strings.HasPrefix(resTypeLower, "azure_") {
+		return "azure"
+	}
+	if strings.Contains(providerLower, "google") || strings.Contains(providerLower, "gcp") || strings.HasPrefix(resTypeLower, "google_") {
+		return "gcp"
+	}
+	if strings.Contains(providerLower, "kubernetes") || strings.Contains(providerLower, "k8s") || strings.HasPrefix(resTypeLower, "kubernetes_") || strings.HasPrefix(resTypeLower, "helm_") {
+		return "k8s"
+	}
+	if strings.Contains(providerLower, "docker") || strings.HasPrefix(resTypeLower, "docker_") {
+		return "docker"
+	}
+	if strings.Contains(providerLower, "helm") {
+		return "helm"
+	}
+	return "other"
 }
 
 func handleGraph(w http.ResponseWriter, r *http.Request) {

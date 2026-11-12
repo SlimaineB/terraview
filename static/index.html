@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TerraView — Full AWS Architecture & Plan Diff Visualizer</title>
+    <title>TerraView — Terraform DAG & Plan Diff Visualizer</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -56,12 +56,12 @@
     <!-- Top Navigation Bar -->
     <header class="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl px-6 flex items-center justify-between shrink-0 z-20">
         <div class="flex items-center space-x-4">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-yellow-500 flex items-center justify-center shadow-lg shadow-orange-500/20 text-white shrink-0">
-                <i data-lucide="cloud" class="w-5 h-5"></i>
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 text-white shrink-0">
+                <i data-lucide="git-branch" class="w-5 h-5"></i>
             </div>
             <div>
-                <h1 class="font-bold text-lg tracking-tight bg-gradient-to-r from-amber-600 to-orange-600 dark:from-amber-400 dark:to-orange-400 bg-clip-text text-transparent">TerraView AWS</h1>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Full AWS Multi-Module Plan & Detailed Diff Explorer</p>
+                <h1 class="font-bold text-lg tracking-tight bg-gradient-to-r from-cyan-600 via-sky-600 to-indigo-600 dark:from-cyan-400 dark:to-indigo-400 bg-clip-text text-transparent">TerraView</h1>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Terraform DAG & Plan Diff Visualizer</p>
             </div>
         </div>
 
@@ -69,10 +69,10 @@
         <div class="hidden xl:flex items-center space-x-3">
             <div class="relative">
                 <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5"></i>
-                <input type="text" id="search-input" oninput="filterGraph(this.value)" placeholder="Search AWS resources..." class="w-64 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-orange-500 transition shadow-sm">
+                <input type="text" id="search-input" oninput="filterGraph(this.value)" placeholder="Search resources..." class="w-64 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-cyan-500 transition shadow-sm">
             </div>
             <div class="flex items-center space-x-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
-                <button onclick="filterByAction('all')" id="filter-btn-all" class="px-3 py-1.5 rounded-lg bg-orange-600 text-white font-medium transition shadow-sm">All</button>
+                <button onclick="filterByAction('all')" id="filter-btn-all" class="px-3 py-1.5 rounded-lg bg-cyan-600 text-white font-medium transition shadow-sm">All</button>
                 <button onclick="filterByAction('create')" id="filter-btn-create" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Add (+)</button>
                 <button onclick="filterByAction('update')" id="filter-btn-update" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Modify (~)</button>
                 <button onclick="filterByAction('no-op')" id="filter-btn-no-op" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Existing</button>
@@ -104,13 +104,13 @@
                 <i id="theme-icon" data-lucide="sun" class="w-4 h-4"></i>
             </button>
 
-            <button onclick="openUploadModal()" class="flex items-center space-x-2 px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-semibold text-sm transition shadow-lg shadow-orange-600/20 active:scale-95">
+            <button onclick="openUploadModal()" class="flex items-center space-x-2 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm transition shadow-lg shadow-cyan-600/20 active:scale-95">
                 <i data-lucide="upload-cloud" class="w-4 h-4"></i>
                 <span>Import Plan JSON</span>
             </button>
             <button onclick="loadDemoData()" class="flex items-center space-x-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-medium text-sm transition">
                 <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i>
-                <span>AWS Demo</span>
+                <span>Multi-Cloud Demo</span>
             </button>
             <button onclick="toggleRawJson()" id="raw-json-btn" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition" title="View Raw JSON">
                 <i data-lucide="code-2" class="w-4 h-4"></i>
@@ -179,7 +179,7 @@
                     <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center mx-auto text-slate-400">
                         <i data-lucide="mouse-pointer-click" class="w-6 h-6"></i>
                     </div>
-                    <p class="text-sm">Click on any AWS resource node to inspect exact attribute changes (before vs after), plan status, and dependencies.</p>
+                    <p class="text-sm">Click on any resource node to inspect exact attribute changes (before vs after), plan status, and dependencies.</p>
                 </div>
             </div>
         </div>
@@ -195,7 +195,7 @@
                         <i data-lucide="file-json" class="w-5 h-5"></i>
                     </div>
                     <div>
-                        <h3 class="font-bold text-lg text-slate-900 dark:text-slate-100">Import AWS Terraform Plan</h3>
+                        <h3 class="font-bold text-lg text-slate-900 dark:text-slate-100">Import Terraform Plan</h3>
                         <p class="text-xs text-slate-500 dark:text-slate-400">Drag & drop JSON plan or paste contents</p>
                     </div>
                 </div>
@@ -245,19 +245,67 @@
         let startX = 0;
         let startY = 0;
 
-        const awsTypeIcons = {
-            aws_vpc: 'network',
-            aws_subnet: 'git-commit',
-            aws_internet_gateway: 'globe',
-            aws_route_table: 'map',
-            aws_security_group: 'shield',
-            aws_iam_role: 'key',
-            aws_db_subnet_group: 'database',
-            aws_db_instance: 'database',
-            aws_eks_cluster: 'server',
-            aws_eks_node_group: 'cpu',
+        // Generic resource type -> Lucide icon mapping (provider-agnostic)
+        const typeIcons = {
+            // Network
+            'vpc': 'network',
+            'subnet': 'git-commit',
+            'route_table': 'map',
+            'internet_gateway': 'globe',
+            'nat_gateway': 'globe',
+            'load_balancer': 'server',
+            'target_group': 'server',
+            // Compute
+            'instance': 'server',
+            'eks_cluster': 'server',
+            'aks_cluster': 'server',
+            'gke_cluster': 'server',
+            'node_group': 'cpu',
+            'virtual_machine': 'server',
+            'compute_instance': 'server',
+            // Containers / K8s
+            'deployment': 'box',
+            'statefulset': 'box',
+            'daemonset': 'box',
+            'service': 'refresh-cw',
+            'namespace': 'layers',
+            // Databases
+            'db_instance': 'database',
+            'db_subnet_group': 'database',
+            'mysql_database': 'database',
+            'postgresql_database': 'database',
+            'sql_database': 'database',
+            'cosmosdb_account': 'database',
+            // Storage
+            's3_bucket': 'cloud',
+            'storage_account': 'cloud',
+            'storage_container': 'cloud',
+            'gcs_bucket': 'cloud',
+            // Security / IAM
+            'security_group': 'shield',
+            'security_group_rule': 'shield',
+            'iam_role': 'key',
+            'iam_policy': 'key',
+            'iam_user': 'key',
+            'key_vault': 'key',
+            'secret': 'key',
+            // DNS
+            'route53_zone': 'network',
+            'dns_zone': 'network',
+            // Default
             default: 'cloud'
         };
+
+        function getIconForType(resType) {
+            const lower = resType.toLowerCase();
+            // Check exact prefix matches first
+            for (const [prefix, icon] of Object.entries(typeIcons)) {
+                if (lower.startsWith(prefix + '_') || lower === prefix) {
+                    return icon;
+                }
+            }
+            return typeIcons.default;
+        }
 
         const actionStyles = {
             create: {
@@ -472,7 +520,7 @@
                     const isSelected = selectedNodeId === node.id;
                     const style = actionStyles[node.action] || actionStyles['no-op'];
                     const selectedRing = isSelected ? 'ring-4 ring-orange-500 shadow-2xl' : '';
-                    const iconName = awsTypeIcons[node.type] || awsTypeIcons.default;
+                    const iconName = getIconForType(node.type);
 
                     card.className = `node-card ${style.bgLight} backdrop-blur-md p-4 rounded-2xl border-2 ${style.border} ${selectedRing} cursor-pointer relative group shadow-sm`;
                     card.setAttribute('data-id', node.id);
@@ -490,8 +538,8 @@
                         </div>
                         <div class="font-bold text-xs text-slate-900 dark:text-slate-100 font-mono truncate mb-1" title="${node.id}">${node.id}</div>
                         <div class="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-800">
-                            <span>AWS Provider</span>
-                            <span class="text-orange-600 dark:text-orange-400 font-semibold text-[10px]">AWS Cloud</span>
+                            <span>Provider:</span>
+                            <span class="text-cyan-600 dark:text-cyan-400 font-semibold text-[10px] uppercase">${escapeHtml(node.provider)}</span>
                         </div>
                     `;
                     listDiv.appendChild(card);
@@ -751,7 +799,7 @@
                     <div class="grid grid-cols-2 gap-3 text-xs">
                         <div class="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
                             <span class="text-slate-400 block mb-1">Provider</span>
-                            <span class="font-medium text-slate-700 dark:text-slate-200">AWS (Amazon)</span>
+                            <span class="font-medium text-slate-700 dark:text-slate-200">${escapeHtml(node.provider)}</span>
                         </div>
                         <div class="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
                             <span class="text-slate-400 block mb-1">Plan Action</span>
@@ -810,7 +858,7 @@
                     <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center mx-auto text-slate-400">
                         <i data-lucide="mouse-pointer-click" class="w-6 h-6"></i>
                     </div>
-                    <p class="text-sm">Click on any AWS resource node to inspect exact attribute changes (before vs after), plan status, and dependencies.</p>
+                    <p class="text-sm">Click on any resource node to inspect exact attribute changes (before vs after), plan status, and dependencies.</p>
                 </div>
             `;
             lucide.createIcons();
