@@ -2,14 +2,17 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"terraview/internal/gitcontext"
 	"terraview/internal/graph"
+	"terraview/internal/manifest"
 )
 
 const handlerPlanJSON = `{
@@ -161,6 +164,138 @@ func TestHandleIndexRejectsUnknownPath(t *testing.T) {
 	rec := httptest.NewRecorder()
 	New(testConfig(t, nil)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/missing", nil))
 
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+func planJSONWithAddress(address string) string {
+	return fmt.Sprintf(`{
+		"format_version": "1.2",
+		"terraform_version": "1.11.4",
+		"resource_changes": [
+			{"address": %q, "type": "terraform_data", "name": "test", "provider_name": "terraform.io/builtin/terraform", "change": {"actions": ["create"], "before": null, "after": {}}}
+		]
+	}`, address)
+}
+
+func writePlanFile(t *testing.T, body string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "plan.json")
+	if err := os.WriteFile(path, []byte(body), 0644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	return path
+}
+
+func TestHandlePlansListsManifestEntries(t *testing.T) {
+	first := manifest.Plan{
+		Entry: manifest.Entry{
+			ID:        "storage/prod/default",
+			Project:   "storage",
+			Env:       "prod",
+			Workspace: "default",
+		},
+		Path:   writePlanFile(t, planJSONWithAddress("terraform_data.storage")),
+		Source: "plans/storage-prod.json",
+	}
+	second := manifest.Plan{
+		Entry: manifest.Entry{
+			ID:        "compute/prod/default",
+			Project:   "compute",
+			Env:       "prod",
+			Workspace: "default",
+		},
+		Path:   writePlanFile(t, planJSONWithAddress("terraform_data.compute")),
+		Source: "plans/compute-prod.json",
+	}
+	cfg := testConfig(t, nil)
+	cfg.Plans = []manifest.Plan{first, second}
+
+	rec := httptest.NewRecorder()
+	New(cfg).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/plans", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	var got plansResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if len(got.Plans) != 2 {
+		t.Fatalf("plans = %d, want 2", len(got.Plans))
+	}
+	if got.Plans[0].ID != first.ID || got.Plans[0].Label != "storage / prod / default" {
+		t.Errorf("first plan = %+v, want storage/prod/default", got.Plans[0])
+	}
+	if got.Plans[1].Project != "compute" || got.Plans[1].Source != "plans/compute-prod.json" {
+		t.Errorf("second plan = %+v, want compute plan metadata", got.Plans[1])
+	}
+}
+
+func TestHandleGraphSelectsManifestPlan(t *testing.T) {
+	first := manifest.Plan{
+		Entry:  manifest.Entry{ID: "storage/prod/default", Project: "storage", Env: "prod", Workspace: "default"},
+		Path:   writePlanFile(t, planJSONWithAddress("terraform_data.storage")),
+		Source: "plans/storage-prod.json",
+	}
+	second := manifest.Plan{
+		Entry:  manifest.Entry{ID: "compute/prod/default", Project: "compute", Env: "prod", Workspace: "default"},
+		Path:   writePlanFile(t, planJSONWithAddress("terraform_data.compute")),
+		Source: "plans/compute-prod.json",
+	}
+	cfg := testConfig(t, nil)
+	cfg.Plans = []manifest.Plan{first, second}
+	cfg.Repo = gitcontext.Context{Path: "/work/infra", Branch: "main"}
+
+	rec := httptest.NewRecorder()
+	New(cfg).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/graph?plan=compute%2Fprod%2Fdefault", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d (%s)", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	got := decodeGraph(t, rec.Body.Bytes())
+	if len(got.Nodes) != 1 || got.Nodes[0].ID != "terraform_data.compute" {
+		t.Errorf("nodes = %+v, want compute plan", got.Nodes)
+	}
+	if got.PlanID != second.ID || got.PlanLabel != "compute / prod / default" {
+		t.Errorf("plan metadata = %q/%q, want compute context", got.PlanID, got.PlanLabel)
+	}
+	if got.Project != "compute" || got.Env != "prod" || got.Workspace != "default" {
+		t.Errorf("environment = %q/%q/%q, want compute/prod/default", got.Project, got.Env, got.Workspace)
+	}
+	if got.GitPath != cfg.Repo.Path || got.GitBranch != cfg.Repo.Branch {
+		t.Errorf("git context = %q/%q, want %q/%q", got.GitPath, got.GitBranch, cfg.Repo.Path, cfg.Repo.Branch)
+	}
+}
+
+func TestHandleGraphDefaultsToFirstManifestPlan(t *testing.T) {
+	first := manifest.Plan{
+		Entry:  manifest.Entry{ID: "storage/prod/default"},
+		Path:   writePlanFile(t, planJSONWithAddress("terraform_data.storage")),
+		Source: "storage-prod.json",
+	}
+	cfg := testConfig(t, nil)
+	cfg.Plans = []manifest.Plan{first}
+
+	rec := httptest.NewRecorder()
+	New(cfg).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/graph", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d (%s)", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	got := decodeGraph(t, rec.Body.Bytes())
+	if got.PlanID != first.ID {
+		t.Errorf("plan_id = %q, want %q", got.PlanID, first.ID)
+	}
+}
+
+func TestHandleGraphRejectsUnknownManifestPlan(t *testing.T) {
+	cfg := testConfig(t, nil)
+	cfg.Plans = []manifest.Plan{{
+		Entry: manifest.Entry{ID: "storage/prod/default"},
+		Path:  writePlanFile(t, planJSONWithAddress("terraform_data.storage")),
+	}}
+	rec := httptest.NewRecorder()
+	New(cfg).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/graph?plan=missing", nil))
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusNotFound)
 	}

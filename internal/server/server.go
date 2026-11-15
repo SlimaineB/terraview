@@ -2,35 +2,53 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 
 	"terraview/internal/gitcontext"
 	"terraview/internal/graph"
+	"terraview/internal/manifest"
 )
 
 type IndexLoader func() ([]byte, error)
 
 type Config struct {
 	Plan     *graph.Data
+	Plans    []manifest.Plan
 	Repo     gitcontext.Context
 	DemoJSON []byte
 	Index    IndexLoader
 }
 
 func New(cfg Config) http.Handler {
+	store := newPlanStore(cfg.Plans, cfg.Repo)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/graph", handleGraph(cfg))
+	mux.HandleFunc("/api/plans", handlePlans(store))
+	mux.HandleFunc("/api/graph", handleGraph(cfg, store))
 	mux.HandleFunc("/api/demo", handleDemoGraph(cfg))
 	mux.HandleFunc("/", handleIndex(cfg))
 	return mux
 }
 
-func handleGraph(cfg Config) http.HandlerFunc {
+func handleGraph(cfg Config, store *planStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
+			if store.hasPlans() {
+				data, err := store.get(r.URL.Query().Get("plan"))
+				if err != nil {
+					if errors.Is(err, errUnknownPlan) {
+						http.Error(w, err.Error(), http.StatusNotFound)
+						return
+					}
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				writeGraphJSON(w, data)
+				return
+			}
 			if cfg.Plan != nil {
 				cfg.Plan.SetRepoContext(cfg.Repo.Path, cfg.Repo.Branch)
 				writeGraphJSON(w, cfg.Plan)

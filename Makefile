@@ -10,10 +10,16 @@ REGISTRY    ?= ghcr.io/slimaineb
 IMAGE       ?= $(REGISTRY)/terraview
 IMAGE_TAG   ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo latest)
 TF_DIR      ?= internal/graph/testdata/real-plan
+TF_WORKSPACE ?=
+TF_VAR_FILE ?=
+TF_PLAN_ARGS ?=
 TF_PLAN     ?= tfplan
 PLAN_JSON   ?= plan.json
+MANIFEST    ?= plans.json
 
-.PHONY: all build test vet fmt lint static image run plan ui clean help
+export TF_WORKSPACE
+
+.PHONY: all build test vet fmt lint static image run plan ui manifest clean help
 
 all: build test vet
 
@@ -43,13 +49,17 @@ plan:
 		exit 1; \
 	}
 	$(TERRAFORM) -chdir="$(TF_DIR)" init -input=false
-	$(TERRAFORM) -chdir="$(TF_DIR)" plan -out="$(TF_PLAN)"
+	$(TERRAFORM) -chdir="$(TF_DIR)" plan $(if $(TF_VAR_FILE),-var-file="$(TF_VAR_FILE)") $(TF_PLAN_ARGS) -out="$(TF_PLAN)"
 	$(TERRAFORM) -chdir="$(TF_DIR)" show -json "$(TF_PLAN)" > "$(PLAN_JSON)"
 	$(MAKE) ui
 
 # Open the plan JSON in the UI
 ui:
 	$(GO) run . -in "$(PLAN_JSON)" -open
+
+# Open all plans listed in MANIFEST in the multi-plan UI
+manifest:
+	$(GO) run . -manifest "$(MANIFEST)" -open
 
 # Generate a standalone HTML report from a Terraform plan JSON (CI-friendly)
 static:
@@ -73,8 +83,9 @@ help:
 	@echo "  make run       - go run . (HTTP server on a free port)"
 	@echo "  make plan      - terraform plan in TF_DIR (default: sample), export PLAN_JSON, open the UI"
 	@echo "  make ui        - open PLAN_JSON in the UI"
+	@echo "  make manifest  - open all plans from MANIFEST in the multi-plan UI"
 	@echo "  make static    - build binary + export terraview-report.html from plan.json"
 	@echo "  make image     - docker build -t $(IMAGE):$(IMAGE_TAG)"
 	@echo "  make clean     - remove binary, report, plan JSON, and tfplan"
 	@echo ""
-	@echo "Variables: REGISTRY (default: ghcr.io/slimaineb), IMAGE_TAG (default: git short SHA), TF_DIR (default: internal/graph/testdata/real-plan), TF_PLAN (default: tfplan), PLAN_JSON (default: plan.json)"
+	@echo "Variables: REGISTRY, IMAGE_TAG, TF_DIR (default: internal/graph/testdata/real-plan), TF_WORKSPACE, TF_VAR_FILE, TF_PLAN_ARGS, TF_PLAN (default: tfplan), PLAN_JSON (default: plan.json), MANIFEST (default: plans.json)"

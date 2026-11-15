@@ -25,6 +25,11 @@ type Data struct {
 	RawSummary        string `json:"raw_summary"`
 	HasDependencyData bool   `json:"has_dependency_data"`
 	Source            string `json:"source,omitempty"`
+	PlanID            string `json:"plan_id,omitempty"`
+	PlanLabel         string `json:"plan_label,omitempty"`
+	Project           string `json:"project,omitempty"`
+	Env               string `json:"env,omitempty"`
+	Workspace         string `json:"workspace,omitempty"`
 	GitPath           string `json:"git_path,omitempty"`
 	GitBranch         string `json:"git_branch,omitempty"`
 }

@@ -32,14 +32,15 @@ TerraView prints its local URL and opens the graph. When launched inside a git w
 |---------|-------------|
 | **DAG layout** | Resources arranged by dependency level (topological sort: roots → dependents) |
 | **Dependency sources** | `configuration` expression references, `depends_on`, and `prior_state`; warns when dependency data is missing |
-| **Plan actions** | `ADD (+)` green, `MODIFY (~)` amber, `DESTROY (-)` red, `EXISTING` slate |
+| **Plan actions** | `ADD (+)` green, `MODIFY (~)` amber, `REPLACE (±)` violet, `DESTROY (-)` red, `EXISTING` slate |
 | **Diff inspector** | Resizable side panel with formatted `before` → `after` JSON, including line-level diffs for inline policies and other structured values |
 | **Atlantis commands** | Per-resource `plan -target`, `apply -target`, `destroy -target`, and `import` copy buttons |
 | **Node quick actions** | Copy `terraform plan` / `apply` / `destroy` commands directly from a node |
-| **Search & filters** | Filter by resource ID/type/name and by action, including Destroy |
+| **Search & filters** | Filter by resource ID/type/name and by action, including Replace and Destroy |
 | **Zoom & pan** | Mouse-wheel zoom, drag-to-pan, and reset controls |
 | **Themes & raw JSON** | Light/dark mode and a bottom panel with the full plan JSON |
 | **Git context** | Repository root and current branch shown in the UI when the plan comes from a git work tree |
+| **Multi-plan manifest** | Load project/env/workspace plans from one JSON manifest and switch between them in a single UI |
 | **Static report** | Export a single HTML file — no server required (ideal for CI artifacts) |
 | **Pipe & view** | `terraform show -json tfplan \| terraview` loads the plan and opens the browser |
 
@@ -130,6 +131,38 @@ terraform show -json tfplan | terraview -port 8081 -name "project-a/feature-x"
 terraform show -json tfplan | terraview -port 8082 -name "project-b/feature-y"
 ```
 
+### Multi-plan manifest (projects, envs, workspaces)
+
+For repositories with several Terraform roots, environments, or workspaces, describe the plans in a manifest:
+
+```json
+{
+  "plans": [
+    {"project": "storage", "env": "prod", "workspace": "default", "file": "plans/storage-prod.json"},
+    {"project": "compute", "env": "prod", "workspace": "default", "file": "plans/compute-prod.json"},
+    {"id": "iam-prod", "label": "IAM / production", "project": "iam", "env": "prod", "workspace": "default", "file": "plans/iam-prod.json"}
+  ]
+}
+```
+
+```bash
+terraview -manifest plans.json -open
+```
+
+- `file` is required and resolved relative to the manifest file.
+- `id` defaults to `project/env/workspace`; set it explicitly to customise the URL key.
+- `label` overrides the display label.
+- The UI groups plans by `project` and exposes the selection as `?plan=<id>`.
+- `-manifest` is UI-only; use `-in` or `-static` for a single report.
+
+Generate one plan per stack/env/workspace:
+
+```bash
+terraform -chdir=stacks/storage workspace select -or-create prod
+terraform -chdir=stacks/storage plan -out=tfplan
+terraform -chdir=stacks/storage show -json tfplan > plans/storage-prod.json
+```
+
 ### Git context
 
 When TerraView runs inside a git work tree, the UI displays the repository root and current branch:
@@ -179,6 +212,7 @@ atlantis plan -- -target=aws_subnet.private
 |------|---------|-------------|
 | `-static` | `false` | Export a standalone HTML report and exit |
 | `-in` | stdin (when piped) | Read plan/state JSON from a file |
+| `-manifest` | | Load multiple plans from a JSON manifest (UI mode only) |
 | `-out` | `terraview-report.html` | Output path (with `-static`) |
 | `-port` | `$PORT`, then a free port | HTTP port (`-port 8080` for a fixed port) |
 | `-open` | `false` (`true` for piped plans unless set) | Open the browser after starting |
@@ -277,9 +311,9 @@ terraview_report:
 
 ### Top bar
 
-- **Stats** — Existing, Add (+), Modify (~), Destroy (-)
+- **Stats** — Existing, Add (+), Modify (~), Replace (±), Destroy (-)
 - **Search** — filter by resource ID, type, or name
-- **Action filters** — All / Add (+) / Modify (~) / Destroy (-) / Existing
+- **Action filters** — All / Add (+) / Modify (~) / Replace (±) / Destroy (-) / Existing
 - **Theme toggle** — light or dark
 - **Import Plan JSON** — paste `terraform show -json` output
 - **Multi-Cloud Demo** — load the embedded example
@@ -322,7 +356,8 @@ The server exposes a small JSON API:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/graph` | Loaded plan, or the demo when no plan is loaded |
+| `GET` | `/api/plans` | Plans declared in `-manifest` (empty without a manifest) |
+| `GET` | `/api/graph` | Loaded plan, manifest plan via `?plan=<id>`, or the demo when no plan is loaded |
 | `POST` | `/api/graph` | Parse a plan/state JSON body and return the graph (10 MB limit) |
 | `GET` | `/api/demo` | Built-in demo plan |
 | `GET` | `/` | Web UI |
@@ -366,12 +401,25 @@ make vet       # go vet ./...
 make fmt       # gofmt -w .
 make lint      # fmt + vet
 make run       # go run . (server on a free port)
+make plan      # terraform init/plan, write plan.json, open the UI
+make ui        # reopen plan.json in the UI
+make manifest  # open all plans from plans.json in the multi-plan UI
 make static    # build + export terraview-report.html from plan.json
 make image     # docker build
 make clean     # remove binary and report
 ```
 
 `make image` accepts `REGISTRY` and `IMAGE_TAG` overrides; see the Makefile for defaults.
+
+`make plan` supports `TF_DIR`, `TF_WORKSPACE`, `TF_VAR_FILE`, `TF_PLAN_ARGS`, `TF_PLAN`, and `PLAN_JSON`:
+
+```bash
+make plan TF_DIR=stacks/storage TF_WORKSPACE=prod TF_VAR_FILE=prod.tfvars \
+  PLAN_JSON=plans/storage-prod.json
+make manifest MANIFEST=plans.json
+```
+
+`TF_WORKSPACE` is exported to Terraform, so `terraform plan` runs against that workspace.
 
 The parser test suite includes a real plan generated by Terraform in `internal/graph/testdata/real-plan/`:
 
@@ -401,12 +449,15 @@ terraview/
 │   │   └── testdata/          # Generated by `terraform show -json`
 │   ├── gitcontext/
 │   │   └── context.go         # Repository root and branch detection
+│   ├── manifest/
+│   │   └── manifest.go        # Multi-plan manifest parsing
 │   ├── server/
-│   │   └── server.go          # HTTP API and UI handler
+│   │   ├── server.go          # HTTP API and UI handler
+│   │   └── plans.go           # Plan selector API and lazy plan loading
 │   └── report/
 │       └── report.go          # Standalone HTML report writer
 ├── go.mod                     # Go module (standard library only)
-├── Makefile                   # build, test, vet, fmt, lint, static, image, run, clean
+├── Makefile                   # build, test, plan, manifest, static, image, run, clean
 ├── Dockerfile                 # Multi-stage distroless image
 ├── README.md
 ├── demo/

@@ -16,6 +16,7 @@ import (
 
 	"terraview/internal/gitcontext"
 	"terraview/internal/graph"
+	"terraview/internal/manifest"
 	"terraview/internal/report"
 	"terraview/internal/server"
 )
@@ -68,6 +69,7 @@ func main() {
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	staticMode := flag.Bool("static", false, "Export a standalone HTML report instead of starting the HTTP server")
 	inputFile := flag.String("in", "", "Input Terraform plan/state JSON file (or pipe JSON on stdin)")
+	manifestFile := flag.String("manifest", "", "JSON manifest listing multiple plans")
 	outputFile := flag.String("out", "terraview-report.html", "Output HTML file path (for -static mode)")
 	portFlag := flag.String("port", "", "HTTP port (default $PORT or a free port)")
 	openFlag := flag.Bool("open", false, "Open the browser after starting the server")
@@ -86,43 +88,67 @@ func main() {
 		}
 	})
 
-	var planData []byte
+	var plans []manifest.Plan
+	var plan *graph.Data
 	source := ""
 	fromStdin := false
-	if *inputFile != "" {
-		data, err := os.ReadFile(*inputFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading input file: %v\n", err)
-			os.Exit(1)
-		}
-		planData = data
-		source = filepath.Base(*inputFile)
-	} else if data, ok := readPipedPlan(); ok {
-		planData = data
-		source = "stdin"
-		fromStdin = true
-	}
-	if *planName != "" {
-		source = *planName
-	}
-
-	var plan *graph.Data
-	if len(planData) > 0 {
-		parsed, err := graph.Parse(planData)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error parsing Terraform JSON: %v\n", err)
-			os.Exit(1)
-		}
-		parsed.Source = source
-		plan = parsed
-	}
-
 	startDir := ""
-	if *inputFile != "" {
-		if abs, err := filepath.Abs(*inputFile); err == nil {
+
+	if *manifestFile != "" {
+		if *inputFile != "" {
+			fmt.Fprintln(os.Stderr, "Error: use either -in or -manifest, not both")
+			os.Exit(1)
+		}
+		if *staticMode {
+			fmt.Fprintln(os.Stderr, "Error: -manifest is only available in UI mode")
+			os.Exit(1)
+		}
+		loaded, err := manifest.Load(*manifestFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading manifest: %v\n", err)
+			os.Exit(1)
+		}
+		plans = loaded
+		source = *manifestFile
+		if abs, err := filepath.Abs(*manifestFile); err == nil {
 			startDir = filepath.Dir(abs)
 		}
+	} else {
+		var planData []byte
+		if *inputFile != "" {
+			data, err := os.ReadFile(*inputFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error reading input file: %v\n", err)
+				os.Exit(1)
+			}
+			planData = data
+			source = filepath.Base(*inputFile)
+		} else if data, ok := readPipedPlan(); ok {
+			planData = data
+			source = "stdin"
+			fromStdin = true
+		}
+		if *planName != "" {
+			source = *planName
+		}
+
+		if len(planData) > 0 {
+			parsed, err := graph.Parse(planData)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error parsing Terraform JSON: %v\n", err)
+				os.Exit(1)
+			}
+			parsed.Source = source
+			plan = parsed
+		}
+
+		if *inputFile != "" {
+			if abs, err := filepath.Abs(*inputFile); err == nil {
+				startDir = filepath.Dir(abs)
+			}
+		}
 	}
+
 	repo := gitcontext.Detect(startDir)
 	plan.SetRepoContext(repo.Path, repo.Branch)
 
@@ -142,6 +168,7 @@ func main() {
 
 	handler := server.New(server.Config{
 		Plan:     plan,
+		Plans:    plans,
 		Repo:     repo,
 		DemoJSON: demoPlanJSON,
 		Index:    loadIndexHTML,
@@ -157,6 +184,9 @@ func main() {
 	fmt.Printf("TerraView running at %s\n", url)
 	if plan != nil {
 		fmt.Printf("Loaded %s: %d resources, %d dependencies\n", source, len(plan.Nodes), len(plan.Edges))
+	}
+	if len(plans) > 0 {
+		fmt.Printf("Loaded %d plans from %s\n", len(plans), source)
 	}
 	if *openFlag || (fromStdin && !openExplicit) {
 		if err := openBrowser(url); err != nil {

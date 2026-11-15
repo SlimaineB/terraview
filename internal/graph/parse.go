@@ -39,9 +39,7 @@ func Parse(data []byte) (*Data, error) {
 
 			if change, ok := res["change"].(map[string]interface{}); ok {
 				if acts, ok := change["actions"].([]interface{}); ok && len(acts) > 0 {
-					if actStr, ok := acts[0].(string); ok {
-						action = actStr
-					}
+					action = normalizeAction(acts)
 				}
 				if b, ok := change["before"].(map[string]interface{}); ok {
 					beforeMap = b
@@ -105,6 +103,32 @@ func Parse(data []byte) (*Data, error) {
 		RawSummary:        fmt.Sprintf("Parsed %d resources and %d dependencies successfully.", len(nodes), len(edges)),
 		HasDependencyData: hasDependencyData,
 	}, nil
+}
+
+func normalizeAction(actions []interface{}) string {
+	values := make([]string, 0, len(actions))
+	hasCreate := false
+	hasDelete := false
+	for _, action := range actions {
+		value, ok := action.(string)
+		if !ok || value == "" {
+			continue
+		}
+		values = append(values, value)
+		switch value {
+		case "create":
+			hasCreate = true
+		case "delete":
+			hasDelete = true
+		}
+	}
+	if len(values) == 0 {
+		return "no-op"
+	}
+	if hasCreate && hasDelete {
+		return "replace"
+	}
+	return values[0]
 }
 
 func parseModuleDependencies(mod map[string]interface{}, prefix string, nodesMap map[string]Node, edges *[]Edge, seen map[string]bool) {

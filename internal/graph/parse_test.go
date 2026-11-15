@@ -260,3 +260,26 @@ func TestParseEdgesAreDeduplicated(t *testing.T) {
 		t.Errorf("edge = %q, want aws_vpc.main->aws_subnet.public", g.Edges[0].ID)
 	}
 }
+
+func TestParseReplaceActions(t *testing.T) {
+	g := parseTestPlan(t, `{
+		"format_version": "1.2",
+		"terraform_version": "1.11.4",
+		"resource_changes": [
+			{"address": "aws_instance.delete_create", "type": "aws_instance", "name": "delete_create", "provider_name": "registry.terraform.io/hashicorp/aws", "change": {"actions": ["delete", "create"], "before": {}, "after": {}}},
+			{"address": "aws_instance.create_delete", "type": "aws_instance", "name": "create_delete", "provider_name": "registry.terraform.io/hashicorp/aws", "change": {"actions": ["create", "delete"], "before": {}, "after": {}}}
+		]
+	}`)
+
+	for _, node := range g.Nodes {
+		if node.Action != "replace" {
+			t.Errorf("node %s action = %q, want replace", node.ID, node.Action)
+		}
+	}
+	if g.Stats.Actions["replace"] != 2 {
+		t.Errorf("replace actions = %d, want 2", g.Stats.Actions["replace"])
+	}
+	if g.Stats.Actions["delete"] != 0 || g.Stats.Actions["create"] != 0 {
+		t.Errorf("create/delete actions = %d/%d, want 0/0", g.Stats.Actions["create"], g.Stats.Actions["delete"])
+	}
+}

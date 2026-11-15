@@ -121,15 +121,16 @@
                 <input type="text" id="search-input" oninput="filterGraph(this.value)" placeholder="Search resources..." class="w-64 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-cyan-500 transition shadow-sm">
             </div>
             <div class="flex items-center space-x-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
-                <button onclick="filterByAction('all')" id="filter-btn-all" class="px-3 py-1.5 rounded-lg bg-cyan-600 text-white font-medium transition shadow-sm">All</button>
-                <button onclick="filterByAction('create')" id="filter-btn-create" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Add (+)</button>
-                <button onclick="filterByAction('update')" id="filter-btn-update" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Modify (~)</button>
-                <button onclick="filterByAction('delete')" id="filter-btn-delete" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Destroy (-)</button>
-                <button onclick="filterByAction('no-op')" id="filter-btn-no-op" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Existing</button>
+                <button onclick="filterByAction('all')" id="filter-btn-all" class="px-2 py-1.5 rounded-lg bg-cyan-600 text-white font-medium transition shadow-sm">All</button>
+                <button onclick="filterByAction('create')" id="filter-btn-create" class="px-2 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Add (+)</button>
+                <button onclick="filterByAction('update')" id="filter-btn-update" class="px-2 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Modify (~)</button>
+                <button onclick="filterByAction('replace')" id="filter-btn-replace" title="Replace" class="px-2 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition"><span class="2xl:hidden">±</span><span class="hidden 2xl:inline">Replace (±)</span></button>
+                <button onclick="filterByAction('delete')" id="filter-btn-delete" class="px-2 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Destroy (-)</button>
+                <button onclick="filterByAction('no-op')" id="filter-btn-no-op" class="px-2 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Existing</button>
             </div>
         </div>
 
-        <div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-2">
             <!-- Stats badges for Actions -->
             <div class="hidden lg:flex items-center space-x-2 text-xs">
                 <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
@@ -146,6 +147,10 @@
                     <span class="w-2 h-2 rounded-full bg-amber-500"></span>
                     <span class="text-slate-500 dark:text-slate-400">To Modify (~):</span>
                     <span id="stat-update" class="font-bold text-amber-600 dark:text-amber-400">0</span>
+                </div>
+                <div class="hidden 2xl:flex items-center space-x-1.5 px-2 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/30" title="Resources to replace">
+                    <span class="font-bold text-violet-600 dark:text-violet-400">±</span>
+                    <span id="stat-replace" class="font-bold text-violet-600 dark:text-violet-400">0</span>
                 </div>
                 <div class="hidden xl:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30">
                     <span class="w-2 h-2 rounded-full bg-red-500"></span>
@@ -175,6 +180,11 @@
 
     <!-- Repository context bar -->
     <div id="repo-context" class="hidden h-9 shrink-0 items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-4 text-xs text-slate-500 backdrop-blur dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400 sm:px-6">
+        <div id="plan-switcher" class="hidden shrink-0 items-center gap-2 border-r border-slate-200 pr-3 dark:border-slate-700">
+            <i data-lucide="layers" class="h-3.5 w-3.5 shrink-0 text-indigo-600 dark:text-indigo-400"></i>
+            <span class="hidden shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 sm:inline">Plan</span>
+            <select id="plan-select" onchange="selectPlan(this.value)" class="max-w-[260px] rounded-lg border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] text-slate-700 focus:border-cyan-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"></select>
+        </div>
         <div class="flex min-w-0 flex-1 items-center gap-2">
             <i data-lucide="folder" class="h-3.5 w-3.5 shrink-0 text-cyan-600 dark:text-cyan-400"></i>
             <span class="hidden shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 sm:inline">Repository</span>
@@ -317,6 +327,7 @@
     <script id="terraview-embedded-data" type="application/json" style="display:none;"></script>
     <script>
         let currentData = null;
+        let planOptions = [];
         let selectedNodeId = null;
         let activeFilter = 'all';
         let searchQuery = '';
@@ -405,7 +416,13 @@
                 border: 'border-red-500 shadow-red-500/10 hover:border-red-400',
                 badge: '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500 text-white flex items-center space-x-1"><i data-lucide="trash-2" class="w-3 h-3"></i><span>DESTROY (-)</span></span>',
                 bgLight: 'bg-red-50/70 dark:bg-red-950/30'
-            },            'no-op': {
+            },
+            replace: {
+                border: 'border-violet-500 shadow-violet-500/10 hover:border-violet-400',
+                badge: '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-violet-500 text-white flex items-center space-x-1"><i data-lucide="refresh-cw" class="w-3 h-3"></i><span>REPLACE (±)</span></span>',
+                bgLight: 'bg-violet-50/70 dark:bg-violet-950/30'
+            },
+            'no-op': {
                 border: 'border-slate-300 dark:border-slate-700 hover:border-slate-400',
                 badge: '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">EXISTING</span>',
                 bgLight: 'bg-white dark:bg-slate-900/90'
@@ -594,8 +611,72 @@
                     console.error("Invalid embedded data:", e);
                 }
             }
+
+            await loadPlanOptions();
+            if (planOptions.length) {
+                const requested = new URLSearchParams(window.location.search).get('plan');
+                const selected = planOptions.some(plan => plan.id === requested)
+                    ? requested
+                    : planOptions[0].id;
+                await selectPlan(selected);
+                return;
+            }
+
             // HTTP server: /api/graph serves the piped/-in plan, or the demo.
             await fetchAndApply('/api/graph');
+        }
+
+        async function loadPlanOptions() {
+            try {
+                const res = await fetch('/api/plans');
+                if (!res.ok) return;
+                const payload = await res.json();
+                planOptions = Array.isArray(payload.plans) ? payload.plans : [];
+                renderPlanOptions();
+            } catch (err) {
+                console.error('Error loading plans:', err);
+            }
+        }
+
+        function renderPlanOptions() {
+            const select = document.getElementById('plan-select');
+            if (!select) return;
+            select.replaceChildren();
+
+            const groups = new Map();
+            for (const plan of planOptions) {
+                const option = document.createElement('option');
+                option.value = plan.id;
+                option.textContent = plan.label || plan.id;
+                option.title = plan.label || plan.id;
+
+                if (plan.project) {
+                    let group = groups.get(plan.project);
+                    if (!group) {
+                        group = document.createElement('optgroup');
+                        group.label = plan.project;
+                        groups.set(plan.project, group);
+                        select.appendChild(group);
+                    }
+                    group.appendChild(option);
+                } else {
+                    select.appendChild(option);
+                }
+            }
+            renderRepoContext(currentData);
+        }
+
+        async function selectPlan(id) {
+            if (!id) return false;
+            const loaded = await fetchAndApply('/api/graph?plan=' + encodeURIComponent(id));
+            if (!loaded) return false;
+
+            const select = document.getElementById('plan-select');
+            if (select) select.value = id;
+            const url = new URL(window.location.href);
+            url.searchParams.set('plan', id);
+            window.history.replaceState(null, '', url);
+            return true;
         }
 
         async function loadDemoData() {
@@ -635,9 +716,16 @@
             const branch = data && data.git_branch ? data.git_branch : '';
             const source = planSourceLabel(data && data.source);
             const hasRepo = Boolean(path || branch);
+            const hasPlans = planOptions.length > 0;
+            const hasContext = hasRepo || hasPlans;
+            const switcher = document.getElementById('plan-switcher');
 
-            bar.classList.toggle('hidden', !hasRepo);
-            bar.classList.toggle('flex', hasRepo);
+            bar.classList.toggle('hidden', !hasContext);
+            bar.classList.toggle('flex', hasContext);
+            if (switcher) {
+                switcher.classList.toggle('hidden', !hasPlans);
+                switcher.classList.toggle('flex', hasPlans);
+            }
 
             if (pathEl) {
                 pathEl.textContent = path;
@@ -658,11 +746,26 @@
             if (!data || !data.nodes) return;
             currentData = data;
             selectedNodeId = null;
-            const label = planSourceLabel(data.source);
+            const label = data.plan_label || planSourceLabel(data.source);
             const branch = data.git_branch ? ` · ${data.git_branch}` : '';
             document.title = label
                 ? `TerraView — ${label}${branch}`
                 : 'TerraView — Terraform DAG & Plan Diff Visualizer';
+
+            const select = document.getElementById('plan-select');
+            if (select) {
+                if (data.plan_id) {
+                    select.value = data.plan_id;
+                } else {
+                    select.selectedIndex = -1;
+                    const url = new URL(window.location.href);
+                    if (url.searchParams.has('plan')) {
+                        url.searchParams.delete('plan');
+                        window.history.replaceState(null, '', url);
+                    }
+                }
+            }
+
             renderRepoContext(data);
             clearSelection();
         }
@@ -708,6 +811,7 @@
             document.getElementById('stat-noop').textContent = actions['no-op'] || 0;
             document.getElementById('stat-create').textContent = actions['create'] || 0;
             document.getElementById('stat-update').textContent = actions['update'] || 0;
+            document.getElementById('stat-replace').textContent = actions['replace'] || 0;
             document.getElementById('stat-delete').textContent = actions['delete'] || 0;
 
             let nodes = data.nodes;
@@ -1071,7 +1175,8 @@
                         ${rows}
                     </div>
                 `;
-            } else if (node.action === 'update') {
+            } else if (node.action === 'update' || node.action === 'replace') {
+                const isReplace = node.action === 'replace';
                 const before = node.before || {};
                 const after = node.after || {};
                 const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
@@ -1083,9 +1188,18 @@
                     rows = '<span class="text-xs text-slate-400 italic">Metadata update</span>';
                 }
 
+                const diffClass = isReplace
+                    ? 'bg-violet-500/5 dark:bg-violet-950/20 border-violet-500/30'
+                    : 'bg-amber-500/5 dark:bg-amber-950/20 border-amber-500/30';
+                const diffLabelClass = isReplace
+                    ? 'text-violet-600 dark:text-violet-400'
+                    : 'text-amber-600 dark:text-amber-400';
+                const diffLabel = isReplace
+                    ? 'Attributes Changed (± Replacement)'
+                    : 'Attribute Changes (~ Modified)';
                 diffHtml = `
-                    <div class="bg-amber-500/5 dark:bg-amber-950/20 p-4 rounded-xl border border-amber-500/30 space-y-2 min-w-0 overflow-hidden">
-                        <span class="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block mb-2">Attribute Changes (~ Modified)</span>
+                    <div class="${diffClass} p-4 rounded-xl border space-y-2 min-w-0 overflow-hidden">
+                        <span class="text-xs font-bold ${diffLabelClass} uppercase tracking-wider block mb-2">${diffLabel}</span>
                         ${rows}
                     </div>
                 `;
@@ -1259,13 +1373,13 @@
         function filterByAction(action) {
             activeFilter = action;
             // Update active button styling
-            ['all', 'create', 'update', 'delete', 'no-op'].forEach(act => {
+            ['all', 'create', 'update', 'replace', 'delete', 'no-op'].forEach(act => {
                 const btn = document.getElementById(`filter-btn-${act}`);
                 if (btn) {
                     if (act === action) {
-                        btn.className = 'px-3 py-1.5 rounded-lg bg-orange-600 text-white font-medium transition shadow-sm';
+                        btn.className = 'px-2 py-1.5 rounded-lg bg-orange-600 text-white font-medium transition shadow-sm';
                     } else {
-                        btn.className = 'px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition';
+                        btn.className = 'px-2 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition';
                     }
                 }
             });
