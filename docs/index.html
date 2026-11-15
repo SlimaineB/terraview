@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TerraView — Terraform plan preview before Atlantis</title>
+  <meta name="description" content="TerraView turns terraform show -json into an interactive dependency graph with plan diffs and copy-paste Atlantis commands. One binary. Any provider.">
+  <meta name="theme-color" content="#060a13">
+  <meta property="og:title" content="TerraView — Terraform plan preview before Atlantis">
+  <meta property="og:description" content="See exactly what Terraform will add, change, or destroy — with dependencies, diffs, and targeted commands.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://slimaineb.github.io/terraview/">
+  <style>
+    :root {
+      --bg: #060a13;
+      --bg-soft: #0a1020;
+      --panel: rgba(13, 21, 38, 0.82);
+      --border: #1e2a44;
+      --border-strong: #2b3b5c;
+      --text: #e8eef9;
+      --muted: #96a6c1;
+      --muted-2: #6f819e;
+      --cyan: #22d3ee;
+      --cyan-soft: #a5f3fc;
+      --blue: #6366f1;
+      --green: #34d399;
+      --green-soft: #6ee7b7;
+      --amber: #fbbf24;
+      --amber-soft: #fcd34d;
+      --red: #f87171;
+      --red-soft: #fca5a5;
+      --orange: #fb923c;
+      --radius: 18px;
+      --max: 1160px;
+      --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background:
+        radial-gradient(900px 520px at 12% -8%, rgba(34, 211, 238, 0.14), transparent 62%),
+        radial-gradient(820px 520px at 92% 2%, rgba(99, 102, 241, 0.18), transparent 62%),
+        radial-gradient(700px 500px at 50% 112%, rgba(251, 146, 60, 0.08), transparent 60%);
+      pointer-events: none;
+    }
+    ::selection { background: rgba(34, 211, 238, 0.24); color: #fff; }
+    a { color: inherit; text-decoration: none; }
+    code, pre { font-family: var(--mono); }
+    svg { display: block; }
+    .container { width: 100%; max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      border-bottom: 1px solid rgba(30, 42, 68, 0.75);
+      background: rgba(6, 10, 19, 0.72);
+      backdrop-filter: blur(16px);
+    }
+    .nav { height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+    .brand-icon {
+      width: 30px; height: 30px; border-radius: 9px;
+      display: grid; place-items: center;
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      color: #04101c;
+      box-shadow: 0 8px 24px rgba(34, 211, 238, 0.25);
+    }
+    .nav-links { display: flex; align-items: center; gap: 26px; font-size: 13px; color: var(--muted); }
+    .nav-links a { transition: color 0.15s ease; }
+    .nav-links a:hover { color: var(--text); }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 16px; border-radius: 10px; border: 1px solid transparent;
+      font-size: 13px; font-weight: 600; white-space: nowrap;
+      transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--cyan), #38bdf8);
+      color: #04101c;
+      box-shadow: 0 10px 30px rgba(34, 211, 238, 0.2);
+    }
+    .btn-ghost { border-color: var(--border); background: rgba(13, 21, 38, 0.6); color: var(--text); }
+    .btn-ghost:hover { border-color: var(--border-strong); background: rgba(20, 31, 54, 0.8); }
+    .btn svg { flex: none; }
+
+    section { scroll-margin-top: 88px; }
+    .section { padding: 78px 0; border-top: 1px solid rgba(30, 42, 68, 0.55); }
+    .section-head { max-width: 760px; margin-bottom: 38px; }
+    .kicker {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: #67e8f9;
+    }
+    h1, h2, h3 { letter-spacing: -0.035em; }
+    h2 { font-size: clamp(28px, 3.4vw, 42px); line-height: 1.12; margin: 10px 0 12px; }
+    .section-head p { margin: 0; color: var(--muted); font-size: 15.5px; }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 0.94fr) minmax(0, 1.06fr);
+      gap: 54px;
+      align-items: center;
+      padding-top: 74px;
+      padding-bottom: 54px;
+    }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 12px; border-radius: 999px;
+      border: 1px solid rgba(34, 211, 238, 0.25);
+      background: rgba(34, 211, 238, 0.06);
+      color: var(--cyan-soft);
+      font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .eyebrow .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green); box-shadow: 0 0 12px var(--green);
+    }
+    h1 { font-size: clamp(38px, 5vw, 62px); line-height: 1.05; margin: 20px 0 18px; font-weight: 800; }
+    .gradient {
+      background: linear-gradient(100deg, #67e8f9 0%, #818cf8 45%, #fb923c 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .lead { max-width: 570px; margin: 0 0 28px; color: var(--muted); font-size: 17px; }
+    .lead code {
+      padding: 1px 5px; border-radius: 5px; font-size: 0.9em;
+      color: #bae6fd; background: rgba(34, 211, 238, 0.08);
+      border: 1px solid rgba(34, 211, 238, 0.16);
+    }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+    .hero-points { display: flex; flex-wrap: wrap; gap: 16px; margin: 0; padding: 0; list-style: none; color: var(--muted-2); font-size: 12px; }
+    .hero-points li { display: flex; align-items: center; gap: 6px; }
+    .hero-points li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--cyan); opacity: 0.7; }
+
+    .app-window {
+      position: relative;
+      border: 1px solid rgba(43, 59, 92, 0.9);
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(16, 26, 47, 0.95), rgba(8, 14, 27, 0.98));
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(34, 211, 238, 0.04);
+      overflow: hidden;
+    }
+    .app-window::before {
+      content: "";
+      position: absolute; inset: -40% -20% auto; height: 60%;
+      background: radial-gradient(closest-side, rgba(34, 211, 238, 0.12), transparent);
+      pointer-events: none;
+    }
+    .window-bar {
+      height: 36px; display: flex; align-items: center; gap: 6px; padding: 0 14px;
+      border-bottom: 1px solid rgba(30, 42, 68, 0.8);
+      background: rgba(6, 10, 19, 0.5);
+    }
+    .window-dot { width: 8px; height: 8px; border-radius: 50%; background: #334155; }
+    .window-dot.red { background: #f87171; }
+    .window-dot.yellow { background: #fbbf24; }
+    .window-dot.green { background: #34d399; }
+    .window-title { margin-left: 8px; font: 11px var(--mono); color: var(--muted-2); }
+    .app { padding: 14px; }
+    .app-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .app-brand { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
+    .app-brand-icon {
+      width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center;
+      background: linear-gradient(135deg, var(--cyan), var(--blue)); color: #04101c;
+    }
+    .app-stats { display: flex; flex-wrap: wrap; gap: 4px; }
+    .pill { padding: 3px 6px; border: 1px solid; border-radius: 5px; font-size: 9px; font-weight: 700; letter-spacing: 0.02em; }
+    .pill.existing { color: #cbd5e1; border-color: #334155; background: #1e293b; }
+    .pill.add { color: var(--green-soft); border-color: #065f46; background: #022c22; }
+    .pill.modify { color: var(--amber-soft); border-color: #78350f; background: #451a03; }
+    .pill.destroy { color: var(--red-soft); border-color: #7f1d1d; background: #450a0a; }
+    .app-context {
+      display: flex; align-items: center; gap: 10px; padding: 7px 10px; margin-bottom: 10px;
+      border: 1px solid rgba(30, 42, 68, 0.8); border-radius: 8px;
+      background: rgba(6, 10, 19, 0.55); font: 10px var(--mono); color: var(--muted);
+      overflow: hidden;
+    }
+    .ctx-repo { display: flex; align-items: center; gap: 5px; min-width: 0; flex: 1; }
+    .ctx-repo span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ctx-branch { display: flex; align-items: center; gap: 4px; color: #67e8f9; white-space: nowrap; }
+    .ctx-source { color: var(--muted-2); white-space: nowrap; }
+    .app-body { display: grid; grid-template-columns: minmax(0, 1fr) 212px; gap: 10px; align-items: stretch; }
+    .graph-wrap {
+      border: 1px solid rgba(30, 42, 68, 0.7); border-radius: 12px;
+      background: rgba(6, 10, 19, 0.4); padding: 8px;
+    }
+    .graph-svg { width: 100%; height: auto; }
+    .edge { fill: none; stroke: #334155; stroke-width: 1.1; marker-end: url(#arrow); }
+    .node .box { fill: #0b1424; stroke-width: 1.2; }
+    .node .dot { fill: currentColor; }
+    .node .label { fill: #dbeafe; font: 600 9.5px var(--mono); }
+    .node .badge-text { font: 700 6.5px var(--mono); }
+    .node.add { color: var(--green); }
+    .node.modify { color: var(--amber); }
+    .node.destroy { color: var(--red); }
+    .node.noop { color: #64748b; }
+    .node.add .box { stroke: var(--green); }
+    .node.modify .box { stroke: var(--amber); }
+    .node.destroy .box { stroke: var(--red); }
+    .node.noop .box { stroke: #334155; }
+    .node.add .badge { fill: rgba(6, 78, 59, 0.9); }
+    .node.modify .badge { fill: rgba(69, 26, 3, 0.9); }
+    .node.destroy .badge { fill: rgba(69, 10, 10, 0.9); }
+    .node.noop .badge { fill: rgba(30, 41, 59, 0.9); }
+    .node.add .badge-text { fill: var(--green-soft); }
+    .node.modify .badge-text { fill: var(--amber-soft); }
+    .node.destroy .badge-text { fill: var(--red-soft); }
+    .node.noop .badge-text { fill: #94a3b8; }
+    .mock-inspector {
+      display: flex; flex-direction: column; gap: 8px;
+      border: 1px solid rgba(30, 42, 68, 0.7); border-radius: 12px;
+      background: rgba(6, 10, 19, 0.4); padding: 10px;
+    }
+    .inspector-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .inspector-head .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e2e8f0; font: 600 9.5px var(--mono); }
+    .mock-kicker { color: #64748b; font-size: 7.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+    .diff-box { border: 1px solid rgba(30, 42, 68, 0.8); border-radius: 7px; overflow: hidden; font: 8.5px var(--mono); }
+    .diff-old { padding: 5px 7px; color: var(--red-soft); background: rgba(127, 29, 29, 0.2); }
+    .diff-new { padding: 5px 7px; color: var(--green-soft); background: rgba(6, 78, 59, 0.2); }
+    .dep { color: #94a3b8; font: 8.5px var(--mono); }
+    .dep .up { color: #67e8f9; }
+    .dep .down { color: #c4b5fd; }
+    .cmd-box {
+      border: 1px solid rgba(34, 211, 238, 0.18); border-radius: 7px;
+      background: rgba(34, 211, 238, 0.05); padding: 6px 7px;
+      color: var(--cyan-soft); font: 8px var(--mono); overflow-wrap: anywhere;
+    }
+
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 26px; }
+    .provider-chip {
+      padding: 6px 10px; border: 1px solid rgba(30, 42, 68, 0.9); border-radius: 999px;
+      background: rgba(13, 21, 38, 0.6); color: var(--muted-2);
+      font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+    }
+
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .card {
+      border: 1px solid var(--border); border-radius: 16px; padding: 22px;
+      background: linear-gradient(180deg, rgba(15, 26, 46, 0.7), rgba(9, 16, 31, 0.7));
+    }
+    .card-icon {
+      width: 36px; height: 36px; border-radius: 10px; margin-bottom: 14px;
+      display: grid; place-items: center;
+      color: var(--cyan); background: rgba(34, 211, 238, 0.08);
+      border: 1px solid rgba(34, 211, 238, 0.16);
+    }
+    .card h3 { margin: 0 0 7px; font-size: 15.5px; }
+    .card p { margin: 0; color: var(--muted); font-size: 13.5px; }
+
+    .steps-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 38px; align-items: start; }
+    .code-block {
+      border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+      background: #080e1b; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.3);
+    }
+    .code-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 9px 14px; border-bottom: 1px solid var(--border);
+      background: rgba(15, 26, 46, 0.6); color: var(--muted-2); font: 11px var(--mono);
+    }
+    .copy-btn {
+      padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px;
+      background: transparent; color: var(--muted); font: 10px var(--mono);
+      cursor: pointer; transition: color 0.15s ease, border-color 0.15s ease;
+    }
+    .copy-btn:hover { color: var(--text); border-color: var(--border-strong); }
+    .copy-btn.copied { color: var(--green); border-color: rgba(52, 211, 153, 0.4); }
+    .code-block pre { margin: 0; padding: 18px; overflow-x: auto; color: #cbd5e1; font-size: 12.5px; line-height: 1.85; }
+    .code-block .c { color: #64748b; }
+    .code-block .g { color: var(--green-soft); }
+    .code-block .cy { color: #67e8f9; }
+    .code-block .o { color: #fdba74; }
+    .steps { display: flex; flex-direction: column; gap: 18px; margin: 0; padding: 0; list-style: none; }
+    .step { display: flex; gap: 14px; }
+    .step-num {
+      flex: none; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+      color: #67e8f9; background: rgba(34, 211, 238, 0.08);
+      border: 1px solid rgba(34, 211, 238, 0.2); font: 700 12px var(--mono);
+    }
+    .step h3 { margin: 2px 0 4px; font-size: 15px; }
+    .step p { margin: 0; color: var(--muted); font-size: 13.5px; }
+    .step code { color: #bae6fd; }
+
+    .example-grid { display: grid; grid-template-columns: 0.95fr 1.05fr; gap: 30px; align-items: center; }
+    .flow { display: flex; flex-direction: column; gap: 10px; }
+    .flow-node {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+      background: rgba(13, 21, 38, 0.75); font: 12px var(--mono);
+    }
+    .flow-node .type { color: var(--text); font-weight: 600; }
+    .flow-status { padding: 3px 6px; border: 1px solid; border-radius: 5px; font: 700 9px var(--mono); white-space: nowrap; }
+    .flow-status.add { color: var(--green-soft); border-color: #065f46; background: #022c22; }
+    .flow-status.modify { color: var(--amber-soft); border-color: #78350f; background: #451a03; }
+    .flow-status.noop { color: #cbd5e1; border-color: #334155; background: #1e293b; }
+    .flow-arrow { display: flex; justify-content: center; color: #334155; }
+    .example-note {
+      margin-top: 16px; padding: 14px 16px; border: 1px solid rgba(34, 211, 238, 0.16);
+      border-radius: 10px; background: rgba(34, 211, 238, 0.05);
+      color: var(--muted); font-size: 13px;
+    }
+    .example-note strong { color: var(--cyan-soft); }
+
+    .feature-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .feature {
+      display: flex; gap: 13px; padding: 18px;
+      border: 1px solid var(--border); border-radius: 14px;
+      background: rgba(13, 21, 38, 0.55);
+    }
+    .feature-icon { flex: none; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: rgba(99, 102, 241, 0.1); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.2); }
+    .feature h3 { margin: 0 0 4px; font-size: 14px; }
+    .feature p { margin: 0; color: var(--muted); font-size: 12.5px; }
+
+    .cta-panel {
+      display: flex; align-items: center; justify-content: space-between; gap: 28px;
+      padding: 34px; border: 1px solid rgba(34, 211, 238, 0.22); border-radius: 20px;
+      background:
+        radial-gradient(600px 240px at 8% 0%, rgba(34, 211, 238, 0.12), transparent 68%),
+        radial-gradient(520px 240px at 92% 100%, rgba(99, 102, 241, 0.16), transparent 68%),
+        rgba(13, 21, 38, 0.7);
+    }
+    .cta-panel h2 { margin: 8px 0 8px; font-size: clamp(24px, 3vw, 34px); }
+    .cta-panel p { margin: 0; color: var(--muted); font-size: 14px; }
+    .cta-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+    .footer { border-top: 1px solid var(--border); padding: 28px 0 40px; color: var(--muted-2); font-size: 12px; }
+    .footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .footer-links { display: flex; gap: 18px; }
+    .footer a { color: var(--muted); }
+    .footer a:hover { color: var(--text); }
+
+    :focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+    @media (max-width: 980px) {
+      .hero { grid-template-columns: 1fr; gap: 40px; padding-top: 54px; }
+      .hero-demo { max-width: 720px; }
+      .steps-grid, .example-grid { grid-template-columns: 1fr; }
+      .grid-3, .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 720px) {
+      .nav-links { display: none; }
+      .grid-3, .grid-2, .feature-grid { grid-template-columns: 1fr; }
+      .app-body { grid-template-columns: 1fr; }
+      .mock-inspector { display: none; }
+      .app-stats .pill:nth-child(4) { display: none; }
+      .section { padding: 56px 0; }
+      .cta-panel { flex-direction: column; align-items: flex-start; padding: 24px; }
+      .hero-points { gap: 10px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="#top" aria-label="TerraView home">
+        <span class="brand-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+        </span>
+        <span>TerraView</span>
+      </a>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="#why">Why</a>
+        <a href="#getting-started">Quick start</a>
+        <a href="#example">Example</a>
+        <a href="#features">Features</a>
+        <a href="#ci">CI</a>
+      </nav>
+      <a class="btn btn-ghost" href="https://github.com/SlimaineB/terraview">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2.17c-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.25.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.8 1.19 1.83 1.19 3.08 0 4.41-2.69 5.38-5.25 5.67.41.35.78 1.04.78 2.1v3.11c0 .31.21.68.8.56A10.52 10.52 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z"/></svg>
+        <span>GitHub</span>
+      </a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="container hero">
+      <div class="hero-copy">
+        <span class="eyebrow"><span class="dot" aria-hidden="true"></span> Terraform plan preview · no MR round trip</span>
+        <h1>See what Terraform will do <span class="gradient">before Atlantis does.</span></h1>
+        <p class="lead">TerraView turns <code>terraform show -json</code> into an interactive dependency graph with plan diffs and copy-paste Atlantis commands. One binary. Any provider.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#getting-started">
+            Get started
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/SlimaineB/terraview/releases">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+            Download binary
+          </a>
+        </div>
+        <ul class="hero-points">
+          <li>Single Go binary</li>
+          <li>No provider plugins</li>
+          <li>Linux · macOS · Windows</li>
+        </ul>
+        <div class="pill-row" aria-label="Supported providers">
+          <span class="provider-chip">AWS</span>
+          <span class="provider-chip">Azure</span>
+          <span class="provider-chip">GCP</span>
+          <span class="provider-chip">Kubernetes</span>
+          <span class="provider-chip">Helm</span>
+          <span class="provider-chip">Docker</span>
+        </div>
+      </div>
+
+      <div class="hero-demo">
+        <div class="app-window">
+          <div class="window-bar" aria-hidden="true">
+            <span class="window-dot red"></span>
+            <span class="window-dot yellow"></span>
+            <span class="window-dot green"></span>
+            <span class="window-title">localhost:8080</span>
+          </div>
+          <div class="app">
+            <div class="app-top">
+              <div class="app-brand">
+                <span class="app-brand-icon" aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+                </span>
+                TerraView
+              </div>
+              <div class="app-stats" aria-label="Plan summary">
+                <span class="pill existing">3 existing</span>
+                <span class="pill add">2 add</span>
+                <span class="pill modify">1 modify</span>
+                <span class="pill destroy">1 destroy</span>
+              </div>
+            </div>
+            <div class="app-context" aria-label="Repository context">
+              <span class="ctx-repo">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                <span>/workspace/infra</span>
+              </span>
+              <span class="ctx-branch">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+                main
+              </span>
+              <span class="ctx-source">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                plan.json
+              </span>
+            </div>
+            <div class="app-body">
+              <div class="graph-wrap">
+                <svg class="graph-svg" viewBox="0 0 640 330" role="img" aria-label="Terraform dependency graph with VPC, subnet, EKS, RDS, IAM, security group, and S3 nodes">
+                  <defs>
+                    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+                    </marker>
+                  </defs>
+                  <path class="edge" d="M201 60 C210 60, 210 116, 220 116"/>
+                  <path class="edge" d="M201 174 C210 174, 210 128, 220 128"/>
+                  <path class="edge" d="M405 116 C418 116, 418 60, 430 60"/>
+                  <path class="edge" d="M405 128 C418 128, 418 174, 430 174"/>
+                  <path class="edge" d="M405 252 C418 252, 418 72, 430 72"/>
+
+                  <g class="node add">
+                    <rect class="box" x="16" y="36" width="185" height="48" rx="11"/>
+                    <circle class="dot" cx="34" cy="60" r="3.5"/>
+                    <text class="label" x="46" y="63">aws_vpc.main</text>
+                    <rect class="badge" x="156" y="46" width="31" height="14" rx="4"/>
+                    <text class="badge-text" x="171.5" y="55.5" text-anchor="middle">ADD</text>
+                  </g>
+                  <g class="node noop">
+                    <rect class="box" x="16" y="150" width="185" height="48" rx="11"/>
+                    <circle class="dot" cx="34" cy="174" r="3.5"/>
+                    <text class="label" x="46" y="177">aws_security_group.api</text>
+                    <rect class="badge" x="156" y="160" width="31" height="14" rx="4"/>
+                    <text class="badge-text" x="171.5" y="169.5" text-anchor="middle">NO-OP</text>
+                  </g>
+                  <g class="node modify">
+                    <rect class="box" x="220" y="92" width="185" height="48" rx="11"/>
+                    <circle class="dot" cx="238" cy="116" r="3.5"/>
+                    <text class="label" x="250" y="119">aws_subnet.private</text>
+                    <rect class="badge" x="360" y="102" width="31" height="14" rx="4"/>
+                    <text class="badge-text" x="375.5" y="111.5" text-anchor="middle">MOD</text>
+                  </g>
+                  <g class="node noop">
+                    <rect class="box" x="220" y="228" width="185" height="48" rx="11"/>
+                    <circle class="dot" cx="238" cy="252" r="3.5"/>
+                    <text class="label" x="250" y="255">aws_iam_role.irsa</text>
+                    <rect class="badge" x="360" y="238" width="31" height="14" rx="4"/>
+                    <text class="badge-text" x="375.5" y="247.5" text-anchor="middle">NO-OP</text>
+                  </g>
+                  <g class="node noop">
+                    <rect class="box" x="430" y="36" width="194" height="48" rx="11"/>
+                    <circle class="dot" cx="448" cy="60" r="3.5"/>
+                    <text class="label" x="460" y="63">aws_eks_cluster.app</text>
+                    <rect class="badge" x="580" y="46" width="31" height="14" rx="4"/>
+                    <text class="badge-text" x="595.5" y="55.5" text-anchor="middle">NO-OP</text>
+                  </g>
+                  <g class="node add">
+                    <rect class="box" x="430" y="150" width="194" height="48" rx="11"/>
+                    <circle class="dot" cx="448" cy="174" r="3.5"/>
+                    <text class="label" x="460" y="177">aws_rds_instance.db</text>
+                    <rect class="badge" x="580" y="160" width="31" height="14" rx="4"/>
+                    <text class="badge-text" x="595.5" y="169.5" text-anchor="middle">ADD</text>
+                  </g>
+                  <g class="node destroy">
+                    <rect class="box" x="430" y="244" width="194" height="48" rx="11"/>
+                    <circle class="dot" cx="448" cy="268" r="3.5"/>
+                    <text class="label" x="460" y="271">aws_s3_bucket.logs</text>
+                    <rect class="badge" x="580" y="254" width="31" height="14" rx="4"/>
+                    <text class="badge-text" x="595.5" y="263.5" text-anchor="middle">DEL</text>
+                  </g>
+                </svg>
+              </div>
+              <aside class="mock-inspector" aria-label="Resource diff preview">
+                <div class="inspector-head">
+                  <span class="name">aws_subnet.private</span>
+                  <span class="pill modify">MODIFY</span>
+                </div>
+                <div class="mock-kicker">Attribute diff</div>
+                <div class="diff-box">
+                  <div class="diff-old">- 10.0.1.0/24</div>
+                  <div class="diff-new">+ 10.0.2.0/24</div>
+                </div>
+                <div class="mock-kicker">Dependencies</div>
+                <div class="dep"><span class="up">↑</span> aws_vpc.main</div>
+                <div class="dep"><span class="down">↓</span> aws_eks_cluster.app</div>
+                <div class="mock-kicker">Targeted command</div>
+                <div class="cmd-box">atlantis plan -- -target=aws_subnet.private</div>
+              </aside>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="why" class="section">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">Why TerraView</div>
+          <h2>Your plan, without the round trip.</h2>
+          <p>Atlantis is great for approval. It is a slow way to answer “what will this change?”. TerraView gives you the answer locally, in seconds.</p>
+        </div>
+        <div class="grid-3">
+          <article class="card">
+            <div class="card-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+            </div>
+            <h3>No Atlantis wait</h3>
+            <p>Generate a plan locally, pipe it into TerraView, and inspect the graph before you open the MR.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7 7.5 10 16"/><path d="M17 7.5 14 16"/></svg>
+            </div>
+            <h3>Dependency-aware</h3>
+            <p>Upstream and downstream resources are reconstructed from <code>configuration</code>, <code>depends_on</code>, and prior state.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/></svg>
+            </div>
+            <h3>Actionable commands</h3>
+            <p>Copy <code>terraform -target</code> or Atlantis commands for the exact resource you are reviewing.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="getting-started" class="section">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">Getting started</div>
+          <h2>From plan to preview in two commands.</h2>
+          <p>TerraView is a local server. It reads plan JSON from stdin, opens a browser, and never sends your plan anywhere.</p>
+        </div>
+        <div class="steps-grid">
+          <div class="code-block">
+            <div class="code-head">
+              <span>terminal</span>
+              <button class="copy-btn" type="button">Copy</button>
+            </div>
+            <pre><code><span class="c"># 1. Generate a plan</span>
+<span class="cy">terraform</span> plan -out=tfplan
+
+<span class="c"># 2. Pipe it into TerraView</span>
+<span class="cy">terraform</span> show -json tfplan | <span class="g">terraview</span></code></pre>
+          </div>
+          <ol class="steps">
+            <li class="step">
+              <span class="step-num">1</span>
+              <div>
+                <h3>Plan locally</h3>
+                <p>Use your normal workspace, credentials, and variables. TerraView only consumes the JSON output.</p>
+              </div>
+            </li>
+            <li class="step">
+              <span class="step-num">2</span>
+              <div>
+                <h3>Inspect the graph</h3>
+                <p>Your browser opens on a DAG grouped by dependency level, with add, modify, destroy, and existing resources.</p>
+              </div>
+            </li>
+            <li class="step">
+              <span class="step-num">3</span>
+              <div>
+                <h3>Copy the command</h3>
+                <p>Click a node to see the diff, dependencies, and the targeted Atlantis command for that resource.</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section id="example" class="section">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">Example</div>
+          <h2>A VPC, a subnet, and an EKS cluster.</h2>
+          <p>This is the kind of chain TerraView reconstructs from a real plan. No guessing which resource to target.</p>
+        </div>
+        <div class="example-grid">
+          <div class="code-block">
+            <div class="code-head">
+              <span>main.tf</span>
+              <button class="copy-btn" type="button">Copy</button>
+            </div>
+            <pre><code><span class="cy">resource</span> <span class="o">"aws_vpc"</span> <span class="o">"main"</span> {
+  cidr_block = <span class="g">"10.0.0.0/16"</span>
+}
+
+<span class="cy">resource</span> <span class="o">"aws_subnet"</span> <span class="o">"private"</span> {
+  vpc_id     = aws_vpc.main.id
+  cidr_block = <span class="g">"10.0.2.0/24"</span>
+}
+
+<span class="cy">resource</span> <span class="o">"aws_eks_cluster"</span> <span class="o">"app"</span> {
+  vpc_config {
+    subnet_ids = [aws_subnet.private.id]
+  }
+}</code></pre>
+          </div>
+          <div>
+            <div class="flow" aria-label="Dependency chain">
+              <div class="flow-node">
+                <span class="type">aws_vpc.main</span>
+                <span class="flow-status add">ADD +</span>
+              </div>
+              <div class="flow-arrow" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m6 13 6 6 6-6"/></svg>
+              </div>
+              <div class="flow-node">
+                <span class="type">aws_subnet.private</span>
+                <span class="flow-status modify">MODIFY ~</span>
+              </div>
+              <div class="flow-arrow" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m6 13 6 6 6-6"/></svg>
+              </div>
+              <div class="flow-node">
+                <span class="type">aws_eks_cluster.app</span>
+                <span class="flow-status noop">EXISTING</span>
+              </div>
+            </div>
+            <div class="example-note">
+              <strong>TerraView sees the chain.</strong> Click <code>aws_subnet.private</code> to inspect the CIDR diff and copy <code>atlantis plan -- -target=aws_subnet.private</code>.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="section">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">Features</div>
+          <h2>Everything you need to review a plan.</h2>
+          <p>Built for Terraform reviewers who want signal, not another dashboard.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7 7.5 10 16"/><path d="M17 7.5 14 16"/></svg>
+            </div>
+            <div>
+              <h3>Interactive DAG</h3>
+              <p>Topological levels, zoom, pan, and upstream/downstream visibility.</p>
+            </div>
+          </article>
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M4 12h10"/><path d="M4 19h7"/></svg>
+            </div>
+            <div>
+              <h3>Resource diff inspector</h3>
+              <p>Formatted before/after JSON with line-level highlights for inline policies and nested values.</p>
+            </div>
+          </article>
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6"/><path d="M9 13h6"/><path d="M9 17h4"/></svg>
+            </div>
+            <div>
+              <h3>Atlantis commands</h3>
+              <p>Copy plan, apply, destroy, import, and targeted commands per resource.</p>
+            </div>
+          </article>
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            </div>
+            <div>
+              <h3>Search and action filters</h3>
+              <p>Focus on add, modify, destroy, or existing resources — including a dedicated destroy view.</p>
+            </div>
+          </article>
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+            </div>
+            <div>
+              <h3>Static CI reports</h3>
+              <p>Export a single HTML file and attach it to a CI job or review.</p>
+            </div>
+          </article>
+          <article class="feature">
+            <div class="feature-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            </div>
+            <div>
+              <h3>Git-aware context</h3>
+              <p>See the repository path, current branch, and plan source directly in the UI.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="ci" class="section">
+      <div class="container">
+        <div class="section-head">
+          <div class="kicker">CI-ready</div>
+          <h2>Attach a plan report to every pull request.</h2>
+          <p>No server, no plugin, no extra infrastructure. Generate the report and upload it as an artifact.</p>
+        </div>
+        <div class="steps-grid">
+          <div class="code-block">
+            <div class="code-head">
+              <span>ci.sh</span>
+              <button class="copy-btn" type="button">Copy</button>
+            </div>
+            <pre><code><span class="cy">terraform</span> show -json tfplan &gt; plan.json
+<span class="g">terraview</span> -static -in plan.json -out terraview-report.html</code></pre>
+          </div>
+          <div class="card">
+            <h3>One file to share</h3>
+            <p>The report embeds the graph data and opens in any browser. Upload it as a GitHub Actions or GitLab CI artifact, or link it from a review.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="cta-panel">
+          <div>
+            <div class="kicker">Ready to see your plan?</div>
+            <h2>Stop waiting for a DAG.</h2>
+            <p>Download TerraView, pipe a plan, and inspect the change in seconds.</p>
+          </div>
+          <div class="cta-actions">
+            <a class="btn btn-primary" href="https://github.com/SlimaineB/terraview/releases">Download binary</a>
+            <a class="btn btn-ghost" href="https://github.com/SlimaineB/terraview">View on GitHub</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <span>TerraView · MIT · Built with Go</span>
+      <div class="footer-links">
+        <a href="https://github.com/SlimaineB/terraview">GitHub</a>
+        <a href="https://github.com/SlimaineB/terraview/releases">Releases</a>
+        <a href="https://github.com/SlimaineB/terraview/issues">Issues</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.querySelectorAll('.copy-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const block = btn.closest('.code-block');
+        const code = block && block.querySelector('code');
+        if (!code) return;
+        try {
+          await navigator.clipboard.writeText(code.innerText);
+          const original = btn.textContent;
+          btn.textContent = 'Copied';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = original;
+            btn.classList.remove('copied');
+          }, 1400);
+        } catch (err) {
+          console.error('Copy failed', err);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

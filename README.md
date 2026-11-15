@@ -1,8 +1,28 @@
 # TerraView — Terraform DAG & Plan Diff Visualizer
 
-TerraView is a lightweight, dependency-free Go application that visualizes Terraform execution plans (`terraform show -json`) and state files (`.tfstate`) as an interactive **Directed Acyclic Graph (DAG)**.
+[![CI](https://github.com/SlimaineB/terraview/actions/workflows/ci.yml/badge.svg)](https://github.com/SlimaineB/terraview/actions/workflows/ci.yml)
+[![Release](https://github.com/SlimaineB/terraview/actions/workflows/release.yml/badge.svg)](https://github.com/SlimaineB/terraview/actions/workflows/release.yml)
+[![Landing page](https://img.shields.io/badge/website-slimaineb.github.io%2Fterraview-22d3ee)](https://slimaineb.github.io/terraview/)
+![Go 1.25+](https://img.shields.io/badge/Go-1.25%2B-00ADD8?logo=go&logoColor=white)
 
-It highlights exactly what will be **added**, **modified**, or **destroyed**, shows upstream/downstream dependencies for every resource, and provides copy-paste ready **Atlantis / `terraform -target`** commands for your merge requests. Works with **any Terraform provider** — AWS, Azure, GCP, Kubernetes, Docker, Helm, and more.
+TerraView is a single-binary Go app that turns Terraform plan and state JSON (`terraform show -json`) into an interactive **Directed Acyclic Graph (DAG)**.
+
+It shows exactly what will be **added**, **modified**, or **destroyed**, exposes upstream/downstream dependencies, and provides copy-paste **Atlantis / `terraform -target`** commands. It works with any provider — AWS, Azure, GCP, Kubernetes, Docker, Helm, and more — without an Atlantis or merge-request round trip.
+
+The frontend and demo plan are embedded in the binary. There are no external Go dependencies, no provider plugins, and no cloud SDK.
+
+Project site: **[slimaineb.github.io/terraview](https://slimaineb.github.io/terraview/)**.
+
+---
+
+## Quick start
+
+```bash
+terraform plan -out=tfplan
+terraform show -json tfplan | terraview
+```
+
+TerraView prints `http://localhost:8080` and opens the graph. When launched inside a git work tree, the UI also shows the repository root and current branch.
 
 ---
 
@@ -11,64 +31,213 @@ It highlights exactly what will be **added**, **modified**, or **destroyed**, sh
 | Feature | Description |
 |---------|-------------|
 | **DAG layout** | Resources arranged by dependency level (topological sort: roots → dependents) |
-| **Dependency sources** | `configuration` expression references and `depends_on`; warns when the plan JSON lacks dependency info |
-| **Zoom & pan** | Mouse wheel zoom, drag-to-pan, and reset controls |
-| **Plan action badges** | `ADD (+)` green, `MODIFY (~)` amber, `DESTROY (-)` red, `EXISTING` slate |
-| **Inline attribute diff** | Click any resource to see `before` → `after` changes side-by-side |
-| **Node quick actions** | Copy `plan` / `apply` / `destroy` `-target` commands straight from each node card |
-| **Provider-agnostic icons** | Lucide icons mapped by resource type prefix (VPC, subnet, database, VM, K8s, etc.) |
-| **Atlantis commands** | Per-resource `plan -target`, `apply -target`, `destroy -target`, `import` copy buttons |
-| **Dark / Light theme** | Light mode by default, toggle in header |
-| **Raw JSON viewer** | Inspect the full plan JSON in a bottom panel |
-| **Static HTML export** | Generate a single self-contained `.html` report — no server needed (ideal for CI artifacts) |
+| **Dependency sources** | `configuration` expression references, `depends_on`, and `prior_state`; warns when dependency data is missing |
+| **Plan actions** | `ADD (+)` green, `MODIFY (~)` amber, `DESTROY (-)` red, `EXISTING` slate |
+| **Diff inspector** | Resizable side panel with formatted `before` → `after` JSON, including line-level diffs for inline policies and other structured values |
+| **Atlantis commands** | Per-resource `plan -target`, `apply -target`, `destroy -target`, and `import` copy buttons |
+| **Node quick actions** | Copy `terraform plan` / `apply` / `destroy` commands directly from a node |
+| **Search & filters** | Filter by resource ID/type/name and by action, including Destroy |
+| **Zoom & pan** | Mouse-wheel zoom, drag-to-pan, and reset controls |
+| **Themes & raw JSON** | Light/dark mode and a bottom panel with the full plan JSON |
+| **Git context** | Repository root and current branch shown in the UI when the plan comes from a git work tree |
+| **Static report** | Export a single HTML file — no server required (ideal for CI artifacts) |
+| **Pipe & view** | `terraform show -json tfplan \| terraview` loads the plan and opens the browser |
 
 ---
 
-## Quick Start
+## Install
 
-### Run the interactive server
+### Prebuilt binaries
+
+Download from [GitHub Releases](https://github.com/SlimaineB/terraview/releases). Builds are published for:
+
+| OS | Architectures |
+|----|---------------|
+| Linux | `amd64`, `arm64` |
+| macOS | `amd64`, `arm64` |
+| Windows | `amd64` |
+
+Each platform gets a `.tar.gz`/`.zip` archive and a raw binary. A `checksums.txt` is included for verification.
+
+```bash
+# Example: latest macOS Apple Silicon build via the GitHub CLI
+VERSION="$(gh release view --repo SlimaineB/terraview --json tagName -q .tagName)"
+mkdir -p terraview-bin
+gh release download "$VERSION" --repo SlimaineB/terraview --dir terraview-bin \
+  --pattern "terraview-*-darwin-arm64.tar.gz"
+tar -xzf terraview-bin/terraview-*-darwin-arm64.tar.gz -C terraview-bin
+./terraview-bin/terraview -version
+```
+
+On Windows, download the `.zip` and extract it with `Expand-Archive`.
+
+Every CI run also uploads a `terraview-linux-amd64` binary as a GitHub Actions artifact.
+
+### From source
 
 ```bash
 git clone https://github.com/SlimaineB/terraview.git
 cd terraview
-go run .
+go build -o terraview .
 ```
 
-Open your browser at **http://localhost:8080**.
+Requires Go 1.25 or newer.
 
-Click **Multi-Cloud Demo** to load a built-in enterprise plan (IAM, VPC, EKS, RDS, S3, Security Groups, with create/update/no-op/delete actions).
+---
 
-Or click **Import Plan JSON** and paste the output of:
+## Usage
+
+### Pipe a plan (recommended)
 
 ```bash
-terraform show -json plan.json > plan.json
+terraform plan -out=tfplan
+terraform show -json tfplan | terraview
+```
+
+TerraView starts on `http://localhost:8080`, loads the piped plan, and opens the browser automatically. Use `-open=false` to disable that, `-port` to change the port, and `-name` to label the instance.
+
+### Load a file or a state
+
+`-in` accepts the JSON produced by `terraform show -json`:
+
+```bash
+# Plan
+terraform show -json tfplan > plan.json
+terraview -in plan.json -name "project-a/feature-x"
+
+# State
+terraform show -json > state.json
+terraview -in state.json -name "project-a/state"
+```
+
+`-in` expects the JSON from `terraform show -json`, not a raw `.tfstate` file.
+
+### Run with the demo
+
+```bash
+terraview          # prebuilt binary
+go run .           # from source
+```
+
+Open `http://localhost:8080` and click **Multi-Cloud Demo** to load the built-in example (15 resources, create/update/no-op/delete actions).
+
+### Multiple instances
+
+Give each project or branch its own port and label:
+
+```bash
+terraform show -json tfplan | terraview -port 8081 -name "project-a/feature-x"
+terraform show -json tfplan | terraview -port 8082 -name "project-b/feature-y"
+```
+
+### Git context
+
+When TerraView runs inside a git work tree, the UI displays the repository root and current branch:
+
+- With `-in`, the repository is detected from the plan file’s directory.
+- With stdin, the repository is detected from the current working directory.
+- A plan outside the work tree falls back to TerraView’s working directory.
+- A detached `HEAD` is shown as `detached @ <short-sha>`.
+- `-name` changes the plan label only; it does not override the git path or branch.
+
+### Example: VPC → subnet → EKS
+
+```hcl
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+}
+
+resource "aws_subnet" "private" {
+  vpc_id     = aws_vpc.main.id
+  cidr_block = "10.0.2.0/24"
+}
+
+resource "aws_eks_cluster" "app" {
+  vpc_config {
+    subnet_ids = [aws_subnet.private.id]
+  }
+}
+```
+
+```bash
+terraform init
+terraform plan -out=tfplan
+terraform show -json tfplan | terraview
+```
+
+TerraView places the VPC before the subnet and the subnet before the EKS cluster. Selecting the subnet shows its CIDR diff and a ready-to-copy target command:
+
+```bash
+atlantis plan -- -target=aws_subnet.private
 ```
 
 ---
 
-## Static HTML Export (GitLab CI / GitHub CI friendly)
-
-Generate a standalone HTML report that requires **no running server**. Perfect for publishing as a CI artifact.
-
-### Usage
-
-```bash
-# Build the binary
-make build
-
-# Generate a standalone HTML report from a Terraform plan JSON
-./terraview -static -in plan.json -out terraview-report.html
-```
-
-### Flags
+## Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-static` | `false` | Enable static export mode |
-| `-in` | (required with `-static`) | Input Terraform plan JSON file |
-| `-out` | `terraview-report.html` | Output HTML file path |
+| `-static` | `false` | Export a standalone HTML report and exit |
+| `-in` | stdin (when piped) | Read plan/state JSON from a file |
+| `-out` | `terraview-report.html` | Output path (with `-static`) |
+| `-port` | `$PORT`, then `8080` | HTTP port |
+| `-open` | `false` (`true` for piped plans unless set) | Open the browser after starting |
+| `-name` | input filename or `stdin` | Label shown in the browser title |
+| `-version` | | Print the version and exit |
 
-### GitLab CI Example
+`-out` is only used with `-static`. When a plan is piped, `-open` defaults to `true` unless explicitly set; pass `-open=false` to suppress it.
+
+---
+
+## Static HTML report
+
+Generate a report that needs no running server:
+
+```bash
+terraview -static -in plan.json -out terraview-report.html
+terraform show -json tfplan | terraview -static -out terraview-report.html
+```
+
+The plan data and application HTML are embedded in the output file. Tailwind, Lucide, and Google Fonts are loaded from CDNs, so an internet connection is required for styling and icons. This is a good fit for CI artifacts and review attachments.
+
+### GitHub Actions
+
+```yaml
+name: Terraform report
+
+on: [pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build report
+        run: |
+          terraform init
+          terraform plan -out=tfplan
+          terraform show -json tfplan > plan.json
+          go run . -static -in plan.json -out terraview-report.html
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: terraview-report
+          path: terraview-report.html
+```
+
+Configure the backend, credentials, and variables required by your Terraform configuration.
+
+### GitLab CI
 
 ```yaml
 stages:
@@ -77,7 +246,9 @@ stages:
 
 terraform_plan:
   stage: plan
-  image: hashicorp/terraform:1.5
+  image:
+    name: hashicorp/terraform:latest  # pin a version in production
+    entrypoint: [""]
   script:
     - terraform init
     - terraform plan -out=tfplan
@@ -89,137 +260,186 @@ terraform_plan:
 terraview_report:
   stage: report
   image: golang:1.25
+  needs:
+    - terraform_plan
   script:
-    - make build
+    - go build -o terraview .
     - ./terraview -static -in plan.json -out terraview-report.html
   artifacts:
     paths:
       - terraview-report.html
     expire_in: 1 week
-  needs:
-    - terraform_plan
 ```
-
-Open `terraview-report.html` in any browser — it is fully self-contained (CSS, icons, and plan data embedded).
 
 ---
 
-## UI Walkthrough
+## UI guide
 
-### Top Bar
-- **Resource stats** — count of Existing, Add (+), Modify (~)
-- **Theme toggle** — Light / Dark mode
+### Top bar
+
+- **Stats** — Existing, Add (+), Modify (~), Destroy (-)
+- **Search** — filter by resource ID, type, or name
+- **Action filters** — All / Add (+) / Modify (~) / Destroy (-) / Existing
+- **Theme toggle** — light or dark
 - **Import Plan JSON** — paste `terraform show -json` output
-- **Multi-Cloud Demo** — load the built-in example plan
-- **`</>` Raw JSON** — open a bottom panel showing the complete plan JSON
+- **Multi-Cloud Demo** — load the embedded example
+- **Raw JSON** — open the full plan JSON in a bottom panel
+
+### Repository context
+
+A slim bar below the header shows the git repository root, current branch, and plan source (file name, `stdin`, uploaded plan, or demo) whenever that context is available. Long paths are truncated visually and shown in full on hover.
 
 ### Canvas
-- Resources are grouped by **Deployment Level** (topological sort by dependencies)
-- Each node has quick buttons: **plan** / **apply** (or **destroy**) to copy the targeted command, and **inspect** to open the panel
-- Click a node to open the **Resource Diff Inspector**
-- Drag the canvas background to pan; scroll to zoom; use bottom-left controls for zoom in/out/reset
 
-### Resource Diff Inspector (right panel, resizable)
-- **Provider** — the actual provider name from the plan
-- **Plan Action** — colour-coded badge (ADD / MODIFY / DESTROY / EXISTING)
-- **Attribute diff** — side-by-side `before` (`-`) / `after` (`+`) for modified resources; full attribute list for existing or new resources
-- **Upstream / Downstream** — dependency chain
-- **Atlantis / Targeted Plan** — copy-paste commands for MRs:
-  - `terraform plan -target=aws_vpc.main`
-  - `terraform apply -target=aws_vpc.main`
-  - `terraform destroy -target=aws_s3_bucket.legacy_bucket`
-  - `terraform import <addr> <RESOURCE_ID>`
+- Resources are grouped by deployment level, derived from the dependency graph.
+- Each node exposes copy buttons for `terraform plan -target=...` and `terraform apply -target=...` (or `terraform destroy -target=...` for deletions).
+- Drag the background to pan, scroll to zoom, and use the bottom-left controls to reset.
 
-### Filters (top bar)
-- **Search** — filter by resource ID, type, or name
-- **Action chips** — All / Add (+) / Modify (~) / Existing
+### Resource inspector
+
+The right panel is resizable (drag its edge, double-click to reset) and shows:
+
+- Provider, plan action, and attributes to be added, modified, or destroyed
+- Pretty-printed JSON diffs, including line-level changes for inline IAM policies and nested values
+- Upstream and downstream dependencies
+- Targeted commands and optional Atlantis commands for the selected resource
+
+Atlantis examples:
+
+```bash
+atlantis plan -- -target=aws_vpc.main
+atlantis plan -- -destroy -target=aws_s3_bucket.legacy_bucket
+atlantis apply
+```
+
+Add `-d <dir>` or `-p <project>` to `atlantis apply` when the repository has multiple Atlantis projects.
 
 ---
 
-## Makefile
+## HTTP API
 
+The server exposes a small JSON API:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/graph` | Loaded plan, or the demo when no plan is loaded |
+| `POST` | `/api/graph` | Parse a plan/state JSON body and return the graph (10 MB limit) |
+| `GET` | `/api/demo` | Built-in demo plan |
+| `GET` | `/` | Web UI |
+
+Graph responses include `source` plus, when available, `git_path` and `git_branch`. `POST /api/graph` parses the request body without changing the plan loaded at startup.
+
+```bash
+curl -s http://localhost:8080/api/graph | jq '{source, git_path, git_branch, stats}'
+curl -s -X POST --data-binary @plan.json http://localhost:8080/api/graph > graph.json
 ```
+
+---
+
+## Docker
+
+```bash
+docker build -t terraview .
+docker run --rm -p 8080:8080 terraview
+```
+
+The image is built with `CGO_ENABLED=0`, runs on a distroless base, and embeds the UI and demo. To view a local plan without waiting for an MR:
+
+```bash
+terraform show -json tfplan | docker run --rm -i -p 8080:8080 terraview -open=false
+```
+
+Published tag images are available at `ghcr.io/<owner>/terraview:<version>`.
+
+---
+
+## Development
+
+### Make targets
+
+```bash
 make build     # go build -o terraview .
 make test      # go test ./...
 make vet       # go vet ./...
 make fmt       # gofmt -w .
 make lint      # fmt + vet
-make run       # go run . (HTTP server on :8080)
-make static    # build binary + export terraview-report.html from plan.json
+make run       # go run . (server on :8080)
+make static    # build + export terraview-report.html from plan.json
 make image     # docker build
 make clean     # remove binary and report
 ```
 
-Variables: `REGISTRY` (default: `ghcr.io/slimaineb`), `IMAGE_TAG` (default: git short SHA)
+`make image` accepts `REGISTRY` and `IMAGE_TAG` overrides; see the Makefile for defaults.
 
----
+### Requirements
 
-## Dockerfile
+- Go 1.25+
+- A modern browser (Chrome, Firefox, Edge, Safari)
+- Internet access for the UI’s CDN assets (Tailwind, Lucide, Google Fonts)
+- Docker (optional) for the container image
 
-Multi-stage build, distroless runtime, CGO disabled:
+No external Go dependencies are used.
 
-```dockerfile
-FROM golang:1.25 AS build
-WORKDIR /src
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /terraview .
+### Repository layout
 
-FROM gcr.io/distroless/static-debian12:nonroot
-COPY --from=build /terraview /terraview
-EXPOSE 8080
-ENTRYPOINT ["/terraview"]
+```
+terraview/
+├── main.go               # HTTP server, Terraform JSON parser, static exporter
+├── main_test.go          # Parser and HTTP handler tests
+├── go.mod                # Go module (standard library only)
+├── Makefile              # build, test, vet, fmt, lint, static, image, run, clean
+├── Dockerfile            # Multi-stage distroless image
+├── README.md
+├── demo/
+│   └── demo-plan.json    # Embedded demo plan (served by /api/demo)
+├── docs/
+│   └── index.html        # GitHub Pages landing page
+├── static/
+│   └── index.html        # Single-file frontend (embedded; on-disk copy wins in dev)
+└── .github/workflows/
+    ├── ci.yml            # Lint, test, build, upload binary artifact
+    ├── pages.yml         # Deploy docs/ to GitHub Pages
+    └── release.yml       # Tests, binaries, GitHub Release, GHCR image
 ```
 
-Build and run:
-
-```bash
-docker build -t terraview .
-docker run -p 8080:8080 terraview
-```
+During development, an on-disk `static/index.html` takes precedence over the embedded copy, so UI edits are reflected on refresh without rebuilding.
 
 ---
 
 ## CI & Release
 
-GitHub Actions workflows live in `.github/workflows/`:
-
 | Workflow | Trigger | Description |
 |----------|---------|-------------|
-| `ci.yml` | push / PR to `main` | gofmt check, `go vet`, `go test`, `go build` |
-| `release.yml` | push tag `v*` | Build binaries (linux/darwin/windows), create GitHub Release, build & push multi-arch Docker image to GHCR |
+| `ci.yml` | push / PR to `main` or `master`, manual | gofmt check, inline HTML script validation, `go vet`, `go test`, build, upload `terraview-linux-amd64` artifact |
+| `release.yml` | tag `v*`, manual | test, build `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`, `windows/amd64`, publish GitHub Release and multi-arch GHCR image |
+| `pages.yml` | push to `main` changing `docs/**` or the workflow, manual | deploy `docs/` to GitHub Pages |
 
-Published images: `ghcr.io/<owner>/terraview`
+On a tag, the release contains:
 
----
+- `.tar.gz` archives for Linux/macOS and `.zip` for Windows
+- Raw binaries for each platform
+- `checksums.txt`
 
-## Repository Layout
+A manual `release.yml` run builds the binaries and uploads them as workflow artifacts, without creating a release or pushing images.
 
-```
-terraview/
-├── main.go               # Go HTTP server, Terraform JSON parser, static HTML exporter
-├── go.mod                # Go module (standard library only)
-├── Makefile              # build, test, vet, fmt, lint, static, image, run, clean
-├── Dockerfile            # Multi-stage distroless container image
-├── README.md             # This file
-├── demo/
-│   └── demo-plan.json    # Embedded multi-cloud example plan (served by /api/graph)
-├── static/
-│   └── index.html        # Single-file frontend (Tailwind, Lucide, custom SVG DAG)
-└── .github/workflows/
-    ├── ci.yml            # CI pipeline
-    └── release.yml       # Release + Docker publish
-```
+### Landing page
+
+The project site lives in `docs/index.html` and is deployed by `pages.yml` to:
+
+**[https://slimaineb.github.io/terraview/](https://slimaineb.github.io/terraview/)**
+
+To enable deployment, open **Settings → Pages → Build and deployment**, set **Source** to **GitHub Actions**, then push to `main` or run the Pages workflow manually.
 
 ---
 
-## Requirements
+## Troubleshooting
 
-- Go 1.25+
-- Modern browser (Chrome, Firefox, Edge, Safari)
-
-No external Go dependencies — only the standard library is used.
+- **The browser did not open** — visit the printed URL, or pass `-open=false` in headless/container environments.
+- **Repository context is missing** — start TerraView inside a git work tree, or pass a plan file located in one. A detached `HEAD` is shown as `detached @ <short-sha>`.
+- **No dependency arrows** — the plan JSON has no dependency data. Regenerate it with `terraform show -json tfplan`.
+- **Port already in use** — choose another port with `-port`; use `-name` to distinguish parallel instances.
+- **The report looks unstyled offline** — Tailwind, Lucide, and Google Fonts come from CDNs.
+- **A `.tfstate` file is rejected** — export it with `terraform show -json` and pass that JSON instead.
 
 ---
 

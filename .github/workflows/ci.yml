@@ -5,10 +5,20 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint-test-build:
+    name: Lint, test, build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -16,11 +26,17 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
           cache: true
 
       - name: gofmt check
-        run: gofmt -l . | grep -v '^$' && exit 1 || echo "gofmt clean"
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
 
       - name: go vet
         run: go vet ./...
@@ -28,5 +44,33 @@ jobs:
       - name: go test
         run: go test ./...
 
-      - name: go build
-        run: go build -o terraview .
+      - name: Validate inline HTML scripts
+        run: |
+          node -e '
+          const fs = require("fs");
+          const vm = require("vm");
+          for (const file of ["static/index.html", "docs/index.html"]) {
+            const html = fs.readFileSync(file, "utf8");
+            const re = /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/gi;
+            let match;
+            let count = 0;
+            while ((match = re.exec(html))) {
+              if (/application\/json/i.test(match[1])) continue;
+              new vm.Script(match[2], { filename: file + "#inline-" + (++count) });
+            }
+            console.log(file + ": OK on " + count + " inline scripts");
+          }
+          '
+
+      - name: Build binary
+        run: |
+          VERSION="0.0.0-${GITHUB_SHA::7}"
+          CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o terraview .
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraview-linux-amd64
+          path: terraview
+          if-no-files-found: error
+          retention-days: 14

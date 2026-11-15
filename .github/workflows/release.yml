@@ -4,13 +4,20 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  release:
+  test:
+    name: Test
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,33 +25,132 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version-file: go.mod
           cache: true
 
-      - name: Get tag
-        id: tag
-        run: echo "TAG=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+      - name: go vet
+        run: go vet ./...
 
-      - name: Build Linux binary
+      - name: go test
+        run: go test ./...
+
+  binaries:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            ext: ''
+            format: tar.gz
+          - goos: linux
+            goarch: arm64
+            ext: ''
+            format: tar.gz
+          - goos: darwin
+            goarch: amd64
+            ext: ''
+            format: tar.gz
+          - goos: darwin
+            goarch: arm64
+            ext: ''
+            format: tar.gz
+          - goos: windows
+            goarch: amd64
+            ext: '.exe'
+            format: zip
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build and package
+        shell: bash
         run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.version=${{ steps.tag.outputs.TAG }}" -o terraview-linux-amd64 .
-          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.version=${{ steps.tag.outputs.TAG }}" -o terraview-darwin-amd64 .
-          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags="-s -w -X main.version=${{ steps.tag.outputs.TAG }}" -o terraview-darwin-arm64 .
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.version=${{ steps.tag.outputs.TAG }}" -o terraview-windows-amd64.exe .
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.0.0-${GITHUB_SHA::7}"
+          fi
+          OUT="terraview-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          mkdir -p "dist/${OUT}" release
+          CGO_ENABLED=0 GOOS="${{ matrix.goos }}" GOARCH="${{ matrix.goarch }}" \
+            go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" \
+            -o "dist/${OUT}/terraview${{ matrix.ext }}" .
+          cp README.md "dist/${OUT}/"
+          if [ "${{ matrix.format }}" = "zip" ]; then
+            (cd "dist/${OUT}" && zip -r "../../release/${OUT}.zip" .)
+          else
+            tar -C "dist/${OUT}" -czf "release/${OUT}.tar.gz" .
+          fi
+          cp "dist/${OUT}/terraview${{ matrix.ext }}" \
+            "release/terraview-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}"
+          ls -lh release/
 
-      - name: Create GitHub Release
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraview-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish GitHub release
+    needs: binaries
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: terraview-*
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            terraview-linux-amd64
-            terraview-darwin-amd64
-            terraview-darwin-arm64
-            terraview-windows-amd64.exe
-          draft: false
-          prerelease: false
+          name: TerraView ${{ github.ref_name }}
           generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/*
 
-      - name: Set up Docker Buildx
+  image:
+    name: Publish container image
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
@@ -54,12 +160,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+      - name: Normalize image name
+        run: echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/terraview" >> "$GITHUB_ENV"
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
         with:
           context: .
+          platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/terraview:${{ steps.tag.outputs.TAG }}
-            ghcr.io/${{ github.repository_owner }}/terraview:latest
-          platforms: linux/amd64, linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
