@@ -97,6 +97,8 @@ terraform show -json tfplan | terraview
 
 TerraView listens on a free local port, prints the URL, loads the piped plan, and opens the browser automatically. Use `-open=false` to disable that, `-port 8080` for a fixed port, and `-name` to label the instance.
 
+For `-open`, TerraView honors `$BROWSER` (including `%s` placeholders and colon-separated fallbacks), then falls back to `open` on macOS, `rundll32` on Windows, and `xdg-open` on Linux/Unix.
+
 ### Load a file or a state
 
 `-in` accepts the JSON produced by `terraform show -json`:

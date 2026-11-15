@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 
 	"terraview/internal/gitcontext"
 	"terraview/internal/graph"
@@ -53,16 +54,118 @@ func readPipedPlan() ([]byte, bool) {
 }
 
 func openBrowser(url string) error {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", url)
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	default:
-		cmd = exec.Command("xdg-open", url)
+	var lastErr error
+	for _, argv := range browserCandidates(os.Getenv("BROWSER"), url, runtime.GOOS) {
+		cmd := exec.Command(argv[0], argv[1:]...)
+		if err := cmd.Start(); err != nil {
+			lastErr = err
+			continue
+		}
+		return nil
 	}
-	return cmd.Start()
+	if lastErr == nil {
+		return fmt.Errorf("no browser command found")
+	}
+	return fmt.Errorf("open browser: %w", lastErr)
+}
+
+func browserCandidates(browser, url, goos string) [][]string {
+	var candidates [][]string
+	separator := ":"
+	if goos == "windows" {
+		separator = ";"
+	}
+	if strings.TrimSpace(browser) != "" {
+		for _, entry := range strings.Split(browser, separator) {
+			args, err := splitBrowserCommand(strings.TrimSpace(entry), url)
+			if err != nil || len(args) == 0 {
+				continue
+			}
+			candidates = append(candidates, args)
+		}
+	}
+	switch goos {
+	case "darwin":
+		candidates = append(candidates, []string{"open", url})
+	case "windows":
+		candidates = append(candidates, []string{"rundll32", "url.dll,FileProtocolHandler", url})
+	default:
+		candidates = append(candidates, []string{"xdg-open", url})
+	}
+	return candidates
+}
+
+func splitBrowserCommand(command, url string) ([]string, error) {
+	args, err := splitCommandLine(command)
+	if err != nil {
+		return nil, err
+	}
+	hasPlaceholder := false
+	for i, arg := range args {
+		if strings.Contains(arg, "%s") {
+			hasPlaceholder = true
+			args[i] = strings.ReplaceAll(arg, "%s", url)
+		}
+	}
+	if !hasPlaceholder {
+		args = append(args, url)
+	}
+	return args, nil
+}
+
+func splitCommandLine(command string) ([]string, error) {
+	var args []string
+	var current strings.Builder
+	var quote byte
+	inArg := false
+	flush := func() {
+		if inArg {
+			args = append(args, current.String())
+			current.Reset()
+			inArg = false
+		}
+	}
+	for i := 0; i < len(command); i++ {
+		c := command[i]
+		switch {
+		case quote == '\'':
+			if c == '\'' {
+				quote = 0
+			} else {
+				current.WriteByte(c)
+			}
+		case quote == '"':
+			if c == '"' {
+				quote = 0
+			} else if c == '\\' && i+1 < len(command) && (command[i+1] == '"' || command[i+1] == '\\') {
+				i++
+				current.WriteByte(command[i])
+			} else {
+				current.WriteByte(c)
+			}
+		case c == '\'' || c == '"':
+			quote = c
+			inArg = true
+		case c == '\\':
+			if i+1 < len(command) {
+				i++
+				current.WriteByte(command[i])
+			} else {
+				current.WriteByte(c)
+			}
+			inArg = true
+		case c == ' ' || c == '\t' || c == '\n':
+			flush()
+		default:
+			current.WriteByte(c)
+			inArg = true
+		}
+	}
+	if quote != 0 {
+		return nil, fmt.Errorf("unterminated quote in browser command")
+	}
+	flush()
+	return args, nil
 }
 
 func main() {
