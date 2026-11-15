@@ -34,6 +34,55 @@
         .node-card {
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
+        .attribute-value {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            white-space: pre-wrap;
+            max-height: 12rem;
+            overflow-y: auto;
+        }
+        .diff-code {
+            margin: 0;
+            padding: 6px 0;
+            background: rgba(15, 23, 42, 0.04);
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 8px;
+            font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            max-height: 20rem;
+            overflow: auto;
+        }
+        .dark .diff-code {
+            background: rgba(2, 6, 23, 0.55);
+            border-color: rgba(51, 65, 85, 0.8);
+        }
+        .diff-line {
+            display: flex;
+            min-width: max-content;
+            padding: 0 10px 0 6px;
+        }
+        .diff-sign {
+            flex: none;
+            width: 14px;
+            user-select: none;
+            opacity: 0.7;
+        }
+        .diff-text {
+            white-space: pre;
+        }
+        .diff-add {
+            background: rgba(16, 185, 129, 0.13);
+            color: #047857;
+        }
+        .diff-del {
+            background: rgba(239, 68, 68, 0.12);
+            color: #b91c1c;
+        }
+        .diff-same {
+            color: #475569;
+        }
+        .dark .diff-add { color: #6ee7b7; }
+        .dark .diff-del { color: #fca5a5; }
+        .dark .diff-same { color: #94a3b8; }
         .node-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 12px 30px -10px rgba(14, 165, 233, 0.25);
@@ -75,6 +124,7 @@
                 <button onclick="filterByAction('all')" id="filter-btn-all" class="px-3 py-1.5 rounded-lg bg-cyan-600 text-white font-medium transition shadow-sm">All</button>
                 <button onclick="filterByAction('create')" id="filter-btn-create" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Add (+)</button>
                 <button onclick="filterByAction('update')" id="filter-btn-update" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Modify (~)</button>
+                <button onclick="filterByAction('delete')" id="filter-btn-delete" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Destroy (-)</button>
                 <button onclick="filterByAction('no-op')" id="filter-btn-no-op" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Existing</button>
             </div>
         </div>
@@ -97,6 +147,11 @@
                     <span class="text-slate-500 dark:text-slate-400">To Modify (~):</span>
                     <span id="stat-update" class="font-bold text-amber-600 dark:text-amber-400">0</span>
                 </div>
+                <div class="hidden xl:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30">
+                    <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                    <span class="text-slate-500 dark:text-slate-400">To Destroy (-):</span>
+                    <span id="stat-delete" class="font-bold text-red-600 dark:text-red-400">0</span>
+                </div>
             </div>
 
             <!-- Theme Toggle Button -->
@@ -117,6 +172,23 @@
             </button>
         </div>
     </header>
+
+    <!-- Repository context bar -->
+    <div id="repo-context" class="hidden h-9 shrink-0 items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-4 text-xs text-slate-500 backdrop-blur dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400 sm:px-6">
+        <div class="flex min-w-0 flex-1 items-center gap-2">
+            <i data-lucide="folder" class="h-3.5 w-3.5 shrink-0 text-cyan-600 dark:text-cyan-400"></i>
+            <span class="hidden shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 sm:inline">Repository</span>
+            <code id="repo-path" class="block min-w-0 flex-1 truncate font-mono text-[11px] text-slate-600 dark:text-slate-300" title=""></code>
+        </div>
+        <div id="repo-branch-wrap" class="hidden shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-0.5 dark:border-slate-700 dark:bg-slate-800">
+            <i data-lucide="git-branch" class="h-3 w-3 text-cyan-600 dark:text-cyan-400"></i>
+            <span id="repo-branch" class="font-mono text-[11px] font-semibold text-slate-700 dark:text-slate-200"></span>
+        </div>
+        <div class="hidden shrink-0 items-center gap-1.5 md:flex">
+            <i data-lucide="file-json" class="h-3.5 w-3.5 text-slate-400"></i>
+            <span id="context-source" class="max-w-[220px] truncate font-mono text-[11px]"></span>
+        </div>
+    </div>
 
     <!-- Raw JSON Viewer Panel -->
     <div id="raw-json-panel" class="absolute bottom-0 left-0 right-0 h-[45vh] bg-slate-900 dark:bg-black/90 border-t border-slate-200 dark:border-slate-800 z-40 transform translate-y-full transition-transform duration-300 flex flex-col hidden">
@@ -170,8 +242,13 @@
             </div>
         </div>
 
+        <!-- Sidebar Resize Handle -->
+        <div id="sidebar-resizer" title="Drag to resize · double-click to reset" class="group relative z-40 flex w-1.5 shrink-0 cursor-col-resize items-center justify-center bg-transparent transition-colors hover:bg-cyan-500/10">
+            <span class="h-14 w-1 rounded-full bg-slate-300 transition-colors group-hover:bg-cyan-500 dark:bg-slate-700"></span>
+        </div>
+
         <!-- Sidebar Inspector (Resizable) -->
-        <div id="sidebar" class="w-[420px] min-w-[300px] resize horizontal overflow-x-hidden overflow-y-auto custom-scrollbar bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-l border-slate-200 dark:border-slate-800 flex flex-col z-30 transition-all duration-300 shrink-0 shadow-2xl">
+        <div id="sidebar" class="w-[440px] min-w-[320px] max-w-[85vw] overflow-x-hidden overflow-y-auto custom-scrollbar bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-l border-slate-200 dark:border-slate-800 flex flex-col z-30 shrink-0 shadow-2xl">
             <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <div class="flex items-center space-x-2">
                     <i data-lucide="file-diff" class="w-5 h-5 text-orange-600 dark:text-orange-400"></i>
@@ -180,7 +257,7 @@
                 <button onclick="clearSelection()" class="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition">Clear</button>
             </div>
 
-            <div id="sidebar-content" class="flex-1 p-5 overflow-y-auto custom-scrollbar space-y-4">
+            <div id="sidebar-content" class="flex-1 min-w-0 p-5 overflow-y-auto custom-scrollbar space-y-4">
                 <div class="text-center py-24 text-slate-400 space-y-3">
                     <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center mx-auto text-slate-400">
                         <i data-lucide="mouse-pointer-click" class="w-6 h-6"></i>
@@ -344,8 +421,84 @@
                 updateThemeIcon(false);
             }
             lucide.createIcons();
-            loadDemoData();
+            initSidebarResize();
+            loadInitialData();
         });
+
+        const SIDEBAR_DEFAULT_WIDTH = 440;
+        const SIDEBAR_MIN_WIDTH = 320;
+        const SIDEBAR_MAX_RATIO = 0.85;
+        const SIDEBAR_STORAGE_KEY = 'terraview-sidebar-width';
+        let isResizingSidebar = false;
+
+        function sidebarMaxWidth() {
+            return Math.floor(window.innerWidth * SIDEBAR_MAX_RATIO);
+        }
+
+        function clampSidebarWidth(width) {
+            return Math.min(Math.max(width, SIDEBAR_MIN_WIDTH), sidebarMaxWidth());
+        }
+
+        function applySidebarWidth(width) {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+            sidebar.style.width = clampSidebarWidth(width) + 'px';
+        }
+
+        function initSidebarResize() {
+            const sidebar = document.getElementById('sidebar');
+            const handle = document.getElementById('sidebar-resizer');
+            if (!sidebar || !handle) return;
+
+            const saved = parseInt(localStorage.getItem(SIDEBAR_STORAGE_KEY), 10);
+            applySidebarWidth(Number.isFinite(saved) ? saved : SIDEBAR_DEFAULT_WIDTH);
+
+            const saveWidth = () => {
+                localStorage.setItem(SIDEBAR_STORAGE_KEY, String(Math.round(sidebar.getBoundingClientRect().width)));
+            };
+
+            handle.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                isResizingSidebar = true;
+                document.body.classList.add('select-none');
+                document.body.style.cursor = 'col-resize';
+                handle.setPointerCapture?.(e.pointerId);
+            });
+
+            window.addEventListener('pointermove', (e) => {
+                if (!isResizingSidebar) return;
+                e.preventDefault();
+                applySidebarWidth(window.innerWidth - e.clientX);
+            });
+
+            const stopResize = () => {
+                if (!isResizingSidebar) return;
+                isResizingSidebar = false;
+                document.body.classList.remove('select-none');
+                document.body.style.cursor = '';
+                saveWidth();
+                if (currentData) renderDAG(currentData);
+            };
+
+            window.addEventListener('pointerup', stopResize);
+            window.addEventListener('pointercancel', stopResize);
+
+            handle.addEventListener('dblclick', () => {
+                applySidebarWidth(SIDEBAR_DEFAULT_WIDTH);
+                saveWidth();
+                if (currentData) renderDAG(currentData);
+            });
+
+            let resizeFrame = null;
+            window.addEventListener('resize', () => {
+                const width = sidebar.getBoundingClientRect().width;
+                applySidebarWidth(width);
+                if (resizeFrame) cancelAnimationFrame(resizeFrame);
+                resizeFrame = requestAnimationFrame(() => {
+                    if (currentData) renderDAG(currentData);
+                });
+            });
+        }
 
         function toggleTheme() {
             const isDark = document.documentElement.classList.toggle('dark');
@@ -430,28 +583,88 @@
             layer.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
         }
 
-        async function loadDemoData() {
-            // Check for embedded data first (static HTML mode)
+        async function loadInitialData() {
+            // Static HTML report: plan data is embedded in the page.
             const embedded = document.getElementById('terraview-embedded-data');
             if (embedded && embedded.textContent.trim()) {
                 try {
-                    const data = JSON.parse(embedded.textContent);
-                    currentData = data;
-                    renderDAG(data);
+                    applyData(JSON.parse(embedded.textContent));
                     return;
                 } catch (e) {
                     console.error("Invalid embedded data:", e);
                 }
             }
+            // HTTP server: /api/graph serves the piped/-in plan, or the demo.
+            await fetchAndApply('/api/graph');
+        }
 
+        async function loadDemoData() {
+            const loaded = await fetchAndApply('/api/demo');
+            if (!loaded) await fetchAndApply('/api/graph');
+        }
+
+        async function fetchAndApply(url) {
             try {
-                const res = await fetch('/api/graph');
-                const data = await res.json();
-                currentData = data;
-                renderDAG(data);
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(await res.text());
+                applyData(await res.json());
+                return true;
             } catch (err) {
-                console.error("Error loading demo data:", err);
+                console.error(`Error loading ${url}:`, err);
+                return false;
             }
+        }
+
+        function planSourceLabel(source) {
+            if (!source) return '';
+            if (source === 'demo') return 'Demo plan';
+            if (source === 'upload') return 'Uploaded plan';
+            if (source === 'stdin') return 'stdin';
+            return source;
+        }
+
+        function renderRepoContext(data) {
+            const bar = document.getElementById('repo-context');
+            const pathEl = document.getElementById('repo-path');
+            const branchWrap = document.getElementById('repo-branch-wrap');
+            const branchEl = document.getElementById('repo-branch');
+            const sourceEl = document.getElementById('context-source');
+            if (!bar) return;
+
+            const path = data && data.git_path ? data.git_path : '';
+            const branch = data && data.git_branch ? data.git_branch : '';
+            const source = planSourceLabel(data && data.source);
+            const hasRepo = Boolean(path || branch);
+
+            bar.classList.toggle('hidden', !hasRepo);
+            bar.classList.toggle('flex', hasRepo);
+
+            if (pathEl) {
+                pathEl.textContent = path;
+                pathEl.title = path;
+            }
+            if (branchWrap) {
+                branchWrap.classList.toggle('hidden', !branch);
+                branchWrap.classList.toggle('flex', Boolean(branch));
+            }
+            if (branchEl) branchEl.textContent = branch;
+            if (sourceEl) {
+                sourceEl.textContent = source;
+                sourceEl.title = source;
+            }
+        }
+
+        function applyData(data) {
+            if (!data || !data.nodes) return;
+            currentData = data;
+            selectedNodeId = null;
+            const label = planSourceLabel(data.source);
+            const branch = data.git_branch ? ` · ${data.git_branch}` : '';
+            document.title = label
+                ? `TerraView — ${label}${branch}`
+                : 'TerraView — Terraform DAG & Plan Diff Visualizer';
+            renderRepoContext(data);
+            clearSelection();
         }
 
         async function submitJsonText() {
@@ -464,9 +677,7 @@
                     body: text
                 });
                 if (!res.ok) throw new Error(await res.text());
-                const data = await res.json();
-                currentData = data;
-                renderDAG(data);
+                applyData(await res.json());
                 closeUploadModal();
             } catch (err) {
                 alert("Error: " + err.message);
@@ -497,6 +708,7 @@
             document.getElementById('stat-noop').textContent = actions['no-op'] || 0;
             document.getElementById('stat-create').textContent = actions['create'] || 0;
             document.getElementById('stat-update').textContent = actions['update'] || 0;
+            document.getElementById('stat-delete').textContent = actions['delete'] || 0;
 
             let nodes = data.nodes;
             if (activeFilter !== 'all') {
@@ -534,7 +746,7 @@
                     const selectedRing = isSelected ? 'ring-4 ring-orange-500 shadow-2xl' : '';
                     const iconName = getIconForType(node.type);
 
-                    card.className = `node-card ${style.bgLight} backdrop-blur-md p-4 rounded-2xl border-2 ${style.border} ${selectedRing} cursor-pointer relative group shadow-sm`;
+                    card.className = `node-card ${style.bgLight} backdrop-blur-md p-4 rounded-2xl border-2 ${style.border} ${selectedRing} cursor-pointer relative group shadow-sm min-w-0 overflow-hidden`;
                     card.setAttribute('data-id', node.id);
                     card.onclick = () => selectNode(node.id);
 
@@ -701,6 +913,138 @@
             showInspector(id);
         }
 
+        function parseJsonContainer(value) {
+            if (typeof value !== 'string') return null;
+            const trimmed = value.trim();
+            if (!trimmed || (trimmed[0] !== '{' && trimmed[0] !== '[')) return null;
+            try {
+                const parsed = JSON.parse(trimmed);
+                return parsed !== null && typeof parsed === 'object' ? parsed : null;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function normalizeDisplayValue(value, depth = 0) {
+            if (depth > 8) return value;
+            if (typeof value === 'string') {
+                const parsed = parseJsonContainer(value);
+                return parsed === null ? value : normalizeDisplayValue(parsed, depth + 1);
+            }
+            if (Array.isArray(value)) {
+                return value.map(item => normalizeDisplayValue(item, depth + 1));
+            }
+            if (value !== null && typeof value === 'object') {
+                return Object.fromEntries(
+                    Object.entries(value).map(([key, item]) => [key, normalizeDisplayValue(item, depth + 1)])
+                );
+            }
+            return value;
+        }
+
+        function formatValue(value) {
+            const normalized = normalizeDisplayValue(value);
+            if (normalized === undefined) return 'undefined';
+            if (typeof normalized === 'string') return JSON.stringify(normalized);
+            return JSON.stringify(normalized, null, 2);
+        }
+
+        function splitDiffLines(text) {
+            return String(text).replace(/\r\n/g, '\n').split('\n');
+        }
+
+        function lineDiff(before, after) {
+            const a = splitDiffLines(before);
+            const b = splitDiffLines(after);
+            const n = a.length;
+            const m = b.length;
+
+            if (n * m > 250000) {
+                return [
+                    ...a.map(text => ({ type: 'del', text })),
+                    ...b.map(text => ({ type: 'add', text }))
+                ];
+            }
+
+            const width = m + 1;
+            const dp = new Uint32Array((n + 1) * width);
+            const at = (i, j) => i * width + j;
+            for (let i = n - 1; i >= 0; i--) {
+                for (let j = m - 1; j >= 0; j--) {
+                    dp[at(i, j)] = a[i] === b[j]
+                        ? dp[at(i + 1, j + 1)] + 1
+                        : Math.max(dp[at(i + 1, j)], dp[at(i, j + 1)]);
+                }
+            }
+
+            const rows = [];
+            let i = 0;
+            let j = 0;
+            while (i < n && j < m) {
+                if (a[i] === b[j]) {
+                    rows.push({ type: 'same', text: a[i] });
+                    i++;
+                    j++;
+                } else if (dp[at(i + 1, j)] >= dp[at(i, j + 1)]) {
+                    rows.push({ type: 'del', text: a[i++] });
+                } else {
+                    rows.push({ type: 'add', text: b[j++] });
+                }
+            }
+            while (i < n) rows.push({ type: 'del', text: a[i++] });
+            while (j < m) rows.push({ type: 'add', text: b[j++] });
+            return rows;
+        }
+
+        function renderDiffRows(rows) {
+            const signs = { add: '+', del: '-', same: ' ' };
+            const lines = rows.map(row => `<span class="diff-line diff-${row.type}"><span class="diff-sign">${signs[row.type]}</span><span class="diff-text">${escapeHtml(row.text)}</span></span>`).join('');
+            return `<pre class="diff-code custom-scrollbar"><code>${lines}</code></pre>`;
+        }
+
+        function renderSingleValue(value, tone) {
+            const text = formatValue(value);
+            const sign = tone === 'add' ? '+ ' : tone === 'del' ? '- ' : '';
+            if (!text.includes('\n')) {
+                const color = tone === 'add'
+                    ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+                    : tone === 'del'
+                        ? 'text-red-600 dark:text-red-400 font-bold'
+                        : 'text-slate-700 dark:text-slate-300';
+                return `<span class="attribute-value custom-scrollbar block ${color}">${escapeHtml(sign + text)}</span>`;
+            }
+            const rows = splitDiffLines(text).map(line => ({ type: tone, text: line }));
+            return renderDiffRows(rows);
+        }
+
+        function renderAttributeDiff(key, before, after) {
+            const bVal = formatValue(before);
+            const aVal = formatValue(after);
+            if (bVal === aVal) return '';
+            const structured = bVal.includes('\n') || aVal.includes('\n') || bVal.length > 120 || aVal.length > 120;
+            if (structured) {
+                const rows = lineDiff(bVal, aVal);
+                return `
+                    <div class="min-w-0 py-2 border-b border-slate-100 dark:border-slate-800 text-xs font-mono space-y-1.5">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-slate-700 dark:text-slate-300 font-semibold break-words">${escapeHtml(key)}</span>
+                            <span class="text-[9px] font-sans font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0">Structured diff</span>
+                        </div>
+                        ${renderDiffRows(rows)}
+                    </div>
+                `;
+            }
+            return `
+                <div class="min-w-0 py-1.5 border-b border-slate-100 dark:border-slate-800 text-xs font-mono space-y-1">
+                    <span class="text-slate-700 dark:text-slate-300 font-semibold block break-words">${escapeHtml(key)}:</span>
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-2 min-w-0">
+                        <div class="attribute-value custom-scrollbar min-w-0 bg-red-500/10 text-red-600 dark:text-red-400 p-1.5 rounded" title="Before: ${escapeHtml(bVal)}">- ${escapeHtml(bVal)}</div>
+                        <div class="attribute-value custom-scrollbar min-w-0 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 p-1.5 rounded" title="After: ${escapeHtml(aVal)}">+ ${escapeHtml(aVal)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
         function showInspector(nodeId) {
             if (!currentData || !currentData.nodes) return;
             const node = currentData.nodes.find(n => n.id === nodeId);
@@ -715,14 +1059,14 @@
             if (node.action === 'create') {
                 const props = node.after || {};
                 const rows = Object.entries(props).map(([k, v]) => `
-                    <div class="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800 text-xs font-mono">
-                        <span class="text-slate-500">${k}:</span>
-                        <span class="text-emerald-600 dark:text-emerald-400 font-bold">+ ${JSON.stringify(v)}</span>
+                    <div class="min-w-0 py-1.5 border-b border-slate-100 dark:border-slate-800 text-xs font-mono">
+                        <span class="block text-slate-500 break-words mb-0.5">${escapeHtml(k)}:</span>
+                        ${renderSingleValue(v, 'add')}
                     </div>
                 `).join('') || '<span class="text-xs text-slate-400 italic">No attributes specified</span>';
 
                 diffHtml = `
-                    <div class="bg-emerald-500/5 dark:bg-emerald-950/20 p-4 rounded-xl border border-emerald-500/30 space-y-2">
+                    <div class="bg-emerald-500/5 dark:bg-emerald-950/20 p-4 rounded-xl border border-emerald-500/30 space-y-2 min-w-0 overflow-hidden">
                         <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block mb-2">Attributes to be Added</span>
                         ${rows}
                     </div>
@@ -733,41 +1077,44 @@
                 const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
                 let rows = '';
                 allKeys.forEach(k => {
-                    const bVal = JSON.stringify(before[k]);
-                    const aVal = JSON.stringify(after[k]);
-                    if (bVal !== aVal) {
-                        rows += `
-                            <div class="py-1.5 border-b border-slate-100 dark:border-slate-800 text-xs font-mono space-y-1">
-                                <span class="text-slate-700 dark:text-slate-300 font-semibold block">${k}:</span>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div class="bg-red-500/10 text-red-600 dark:text-red-400 p-1.5 rounded" title="Before: ${bVal}">- ${bVal}</div>
-                                    <div class="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 p-1.5 rounded" title="After: ${aVal}">+ ${aVal}</div>
-                                </div>
-                            </div>
-                        `;
-                    }
+                    rows += renderAttributeDiff(k, before[k], after[k]);
                 });
                 if (!rows) {
                     rows = '<span class="text-xs text-slate-400 italic">Metadata update</span>';
                 }
 
                 diffHtml = `
-                    <div class="bg-amber-500/5 dark:bg-amber-950/20 p-4 rounded-xl border border-amber-500/30 space-y-2">
+                    <div class="bg-amber-500/5 dark:bg-amber-950/20 p-4 rounded-xl border border-amber-500/30 space-y-2 min-w-0 overflow-hidden">
                         <span class="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block mb-2">Attribute Changes (~ Modified)</span>
+                        ${rows}
+                    </div>
+                `;
+            } else if (node.action === 'delete') {
+                const props = node.before || {};
+                const rows = Object.entries(props).map(([k, v]) => `
+                    <div class="min-w-0 py-1.5 border-b border-slate-100 dark:border-slate-800 text-xs font-mono">
+                        <span class="block text-slate-500 break-words mb-0.5">${escapeHtml(k)}:</span>
+                        ${renderSingleValue(v, 'del')}
+                    </div>
+                `).join('') || '<span class="text-xs text-slate-400 italic">No attributes specified</span>';
+
+                diffHtml = `
+                    <div class="bg-red-500/5 dark:bg-red-950/20 p-4 rounded-xl border border-red-500/30 space-y-2 min-w-0 overflow-hidden">
+                        <span class="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider block mb-2">Attributes to be Destroyed</span>
                         ${rows}
                     </div>
                 `;
             } else {
                 const props = node.after || node.before || {};
                 const rows = Object.entries(props).map(([k, v]) => `
-                    <div class="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800 text-xs font-mono">
-                        <span class="text-slate-500">${k}:</span>
-                        <span class="text-slate-700 dark:text-slate-300">${JSON.stringify(v)}</span>
+                    <div class="min-w-0 py-1.5 border-b border-slate-100 dark:border-slate-800 text-xs font-mono">
+                        <span class="block text-slate-500 break-words mb-0.5">${escapeHtml(k)}:</span>
+                        ${renderSingleValue(v, 'same')}
                     </div>
                 `).join('') || '<span class="text-xs text-slate-400 italic">No attributes</span>';
 
                 diffHtml = `
-                    <div class="bg-slate-100 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+                    <div class="bg-slate-100 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 min-w-0 overflow-hidden">
                         <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-2">Existing Attributes</span>
                         ${rows}
                     </div>
@@ -781,10 +1128,8 @@
 
             // Atlantis / targeted action helpers
             const atlantisCmd = (n) => {
-                const t = escapeHtml(n.id);
-                if (n.action === 'delete') return `terraform destroy -target=${t}`;
-                if (n.action === 'create') return `terraform plan -target=${t}\nterraform apply -target=${t}`;
-                return `terraform plan -target=${t}`;
+                if (n.action === 'delete') return `atlantis plan -- -destroy -target=${n.id}`;
+                return `atlantis plan -- -target=${n.id}`;
             };
 
             const targetCmds = `
@@ -792,7 +1137,7 @@
                     <div class="flex items-center justify-between">
                         <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Atlantis / Targeted Plan</span>
                         <label class="flex items-center space-x-1 cursor-pointer">
-                            <input type="checkbox" class="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 bg-slate-700 border-slate-600" onchange="this.nextElementSibling.classList.toggle('hidden')">
+                            <input type="checkbox" class="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 bg-slate-700 border-slate-600" onchange="this.closest('div').parentElement.querySelector('.atlantis-cmd').classList.toggle('hidden')">
                             <span class="text-[10px] text-slate-500 dark:text-slate-400">Show Atlantis command</span>
                         </label>
                     </div>
@@ -810,7 +1155,8 @@
                             <span class="text-[9px] text-slate-400 italic">Full command for MR:</span>
                             <button onclick="copyToClipboard(this.parentElement.parentElement.querySelector('pre').textContent)" class="text-[9px] text-orange-600 dark:text-orange-400 hover:underline">copy</button>
                         </div>
-                        <pre class="text-[10px] font-mono bg-white dark:bg-slate-950 p-2 rounded border border-slate-200 dark:border-slate-700 overflow-x-auto break-all text-slate-700 dark:text-slate-300 leading-tight">${atlantisCmd(node)}</pre>
+                        <pre class="text-[10px] font-mono bg-white dark:bg-slate-950 p-2 rounded border border-slate-200 dark:border-slate-700 overflow-x-auto break-all text-slate-700 dark:text-slate-300 leading-tight">${escapeHtml(atlantisCmd(node))}</pre>
+                        <p class="text-[9px] text-slate-400 dark:text-slate-500 mt-1.5 leading-snug">Post this as a PR comment, then run <code class="text-slate-600 dark:text-slate-300">atlantis apply</code> after reviewing the plan. Add <code class="text-slate-600 dark:text-slate-300">-d &lt;dir&gt;</code> or <code class="text-slate-600 dark:text-slate-300">-p &lt;project&gt;</code> if the repo has multiple Atlantis projects.</p>
                     </div>
 
                     <div class="flex items-center space-x-2 mt-1">
@@ -913,7 +1259,7 @@
         function filterByAction(action) {
             activeFilter = action;
             // Update active button styling
-            ['all', 'create', 'update', 'no-op'].forEach(act => {
+            ['all', 'create', 'update', 'delete', 'no-op'].forEach(act => {
                 const btn = document.getElementById(`filter-btn-${act}`);
                 if (btn) {
                     if (act === action) {
