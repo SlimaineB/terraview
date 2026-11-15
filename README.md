@@ -22,7 +22,7 @@ terraform plan -out=tfplan
 terraform show -json tfplan | terraview
 ```
 
-TerraView prints `http://localhost:8080` and opens the graph. When launched inside a git work tree, the UI also shows the repository root and current branch.
+TerraView prints its local URL and opens the graph. When launched inside a git work tree, the UI also shows the repository root and current branch.
 
 ---
 
@@ -94,7 +94,7 @@ terraform plan -out=tfplan
 terraform show -json tfplan | terraview
 ```
 
-TerraView starts on `http://localhost:8080`, loads the piped plan, and opens the browser automatically. Use `-open=false` to disable that, `-port` to change the port, and `-name` to label the instance.
+TerraView listens on a free local port, prints the URL, loads the piped plan, and opens the browser automatically. Use `-open=false` to disable that, `-port 8080` for a fixed port, and `-name` to label the instance.
 
 ### Load a file or a state
 
@@ -119,7 +119,7 @@ terraview          # prebuilt binary
 go run .           # from source
 ```
 
-Open `http://localhost:8080` and click **Multi-Cloud Demo** to load the built-in example (15 resources, create/update/no-op/delete actions).
+Open the URL printed by TerraView and click **Multi-Cloud Demo** to load the built-in example (15 resources, create/update/no-op/delete actions).
 
 ### Multiple instances
 
@@ -180,7 +180,7 @@ atlantis plan -- -target=aws_subnet.private
 | `-static` | `false` | Export a standalone HTML report and exit |
 | `-in` | stdin (when piped) | Read plan/state JSON from a file |
 | `-out` | `terraview-report.html` | Output path (with `-static`) |
-| `-port` | `$PORT`, then `8080` | HTTP port |
+| `-port` | `$PORT`, then a free port | HTTP port (`-port 8080` for a fixed port) |
 | `-open` | `false` (`true` for piped plans unless set) | Open the browser after starting |
 | `-name` | input filename or `stdin` | Label shown in the browser title |
 | `-version` | | Print the version and exit |
@@ -329,6 +329,8 @@ The server exposes a small JSON API:
 
 Graph responses include `source` plus, when available, `git_path` and `git_branch`. `POST /api/graph` parses the request body without changing the plan loaded at startup.
 
+Pass `-port 8080` if you need a predictable URL for these examples.
+
 ```bash
 curl -s http://localhost:8080/api/graph | jq '{source, git_path, git_branch, stats}'
 curl -s -X POST --data-binary @plan.json http://localhost:8080/api/graph > graph.json
@@ -363,7 +365,7 @@ make test      # go test ./...
 make vet       # go vet ./...
 make fmt       # gofmt -w .
 make lint      # fmt + vet
-make run       # go run . (server on :8080)
+make run       # go run . (server on a free port)
 make static    # build + export terraview-report.html from plan.json
 make image     # docker build
 make clean     # remove binary and report

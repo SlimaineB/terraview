@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"testing"
 
 	"terraview/internal/gitcontext"
@@ -48,5 +49,21 @@ func TestRealTerraformPlanThroughServer(t *testing.T) {
 	}
 	if got.GitPath != "/workspace/infra" || got.GitBranch != "main" {
 		t.Errorf("git context = %q/%q, want /workspace/infra/main", got.GitPath, got.GitBranch)
+	}
+}
+
+func TestListenOnFreePort(t *testing.T) {
+	listener, port, err := listenOn("")
+	if err != nil {
+		t.Fatalf("listenOn() error = %v", err)
+	}
+	defer listener.Close()
+
+	number, err := strconv.Atoi(port)
+	if err != nil {
+		t.Fatalf("port %q is not numeric: %v", port, err)
+	}
+	if number == 0 {
+		t.Fatalf("port = %q, want an assigned port", port)
 	}
 }

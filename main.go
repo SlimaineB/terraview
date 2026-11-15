@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 
 	"terraview/internal/gitcontext"
 	"terraview/internal/graph"
@@ -68,7 +69,7 @@ func main() {
 	staticMode := flag.Bool("static", false, "Export a standalone HTML report instead of starting the HTTP server")
 	inputFile := flag.String("in", "", "Input Terraform plan/state JSON file (or pipe JSON on stdin)")
 	outputFile := flag.String("out", "terraview-report.html", "Output HTML file path (for -static mode)")
-	portFlag := flag.String("port", "", "HTTP port (default $PORT or 8080)")
+	portFlag := flag.String("port", "", "HTTP port (default $PORT or a free port)")
 	openFlag := flag.Bool("open", false, "Open the browser after starting the server")
 	planName := flag.String("name", "", "Plan name shown in the browser title")
 	flag.Parse()
@@ -138,9 +139,6 @@ func main() {
 	if port == "" {
 		port = os.Getenv("PORT")
 	}
-	if port == "" {
-		port = "8080"
-	}
 
 	handler := server.New(server.Config{
 		Plan:     plan,
@@ -149,13 +147,13 @@ func main() {
 		Index:    loadIndexHTML,
 	})
 
-	listener, err := net.Listen("tcp", ":"+port)
+	listener, actualPort, err := listenOn(port)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error starting server: %v\n", err)
 		os.Exit(1)
 	}
 
-	url := fmt.Sprintf("http://localhost:%s", port)
+	url := fmt.Sprintf("http://localhost:%s", actualPort)
 	fmt.Printf("TerraView running at %s\n", url)
 	if plan != nil {
 		fmt.Printf("Loaded %s: %d resources, %d dependencies\n", source, len(plan.Nodes), len(plan.Edges))
@@ -169,6 +167,23 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error starting server: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func listenOn(port string) (net.Listener, string, error) {
+	addr := ":" + port
+	if port == "" {
+		addr = ":0"
+	}
+
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if tcpAddr, ok := listener.Addr().(*net.TCPAddr); ok {
+		port = strconv.Itoa(tcpAddr.Port)
+	}
+	return listener, port, nil
 }
 
 func runStatic(plan *graph.Data, outputFile string) {
