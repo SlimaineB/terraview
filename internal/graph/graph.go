@@ -1,0 +1,44 @@
+package graph
+
+type Node struct {
+	ID       string                 `json:"id"`
+	Label    string                 `json:"label"`
+	Type     string                 `json:"type"`
+	Provider string                 `json:"provider"`
+	Name     string                 `json:"name"`
+	Action   string                 `json:"action"`
+	Group    string                 `json:"group"`
+	Before   map[string]interface{} `json:"before"`
+	After    map[string]interface{} `json:"after"`
+}
+
+type Edge struct {
+	ID     string `json:"id"`
+	Source string `json:"source"`
+	Target string `json:"target"`
+}
+
+type Data struct {
+	Nodes             []Node `json:"nodes"`
+	Edges             []Edge `json:"edges"`
+	Stats             Stats  `json:"stats"`
+	RawSummary        string `json:"raw_summary"`
+	HasDependencyData bool   `json:"has_dependency_data"`
+	Source            string `json:"source,omitempty"`
+	GitPath           string `json:"git_path,omitempty"`
+	GitBranch         string `json:"git_branch,omitempty"`
+}
+
+func (d *Data) SetRepoContext(path, branch string) {
+	if d == nil {
+		return
+	}
+	d.GitPath = path
+	d.GitBranch = branch
+}
+
+type Stats struct {
+	TotalResources int            `json:"total_resources"`
+	Actions        map[string]int `json:"actions"`
+	Providers      map[string]int `json:"providers"`
+}
