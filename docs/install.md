@@ -17,14 +17,16 @@ Download from [GitHub Releases](https://github.com/SlimaineB/terraview/releases)
 Each platform gets a `.tar.gz`/`.zip` archive and a raw binary. A `checksums.txt` is included for verification.
 
 ```bash
-# Example: latest macOS Apple Silicon build via the GitHub CLI
-VERSION="$(gh release view --repo SlimaineB/terraview --json tagName -q .tagName)"
-mkdir -p terraview-bin
-gh release download "$VERSION" --repo SlimaineB/terraview --dir terraview-bin \
-  --pattern "terraview-*-darwin-arm64.tar.gz"
-tar -xzf terraview-bin/terraview-*-darwin-arm64.tar.gz -C terraview-bin
-./terraview-bin/terraview -version
+# Linux amd64 (no GitHub CLI needed)
+VERSION=v0.2.0
+mkdir -p bin
+curl -sSL -o bin/terraview.tar.gz \
+  "https://github.com/SlimaineB/terraview/releases/download/${VERSION}/terraview-0.2.0-linux-amd64.tar.gz"
+tar -xzf bin/terraview.tar.gz -C bin
+./bin/terraview -version
 ```
+
+Other assets follow the same pattern: `terraview-0.2.0-linux-arm64.tar.gz`, `terraview-0.2.0-darwin-arm64.tar.gz`, `terraview-0.2.0-windows-amd64.zip`. Verify downloads with `checksums.txt` from the same release.
 
 On Windows, download the `.zip` and extract it with `Expand-Archive`.
 
