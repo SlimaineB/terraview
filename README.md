@@ -313,9 +313,9 @@ terraview_report:
 
 ### Top bar
 
-- **Stats** — Existing, Add (+), Modify (~), Replace (±), Destroy (-)
 - **Search** — filter by resource ID, type, or name
-- **Action filters** — All / Add (+) / Modify (~) / Replace (±) / Destroy (-) / Existing
+- **Action filters with counts** — All / Add / Modify / Replace / Destroy / Existing; each chip shows its count and filters the graph when clicked
+- **Atlantis toggle** — switch copied commands between `terraform` and `atlantis` syntax
 - **Theme toggle** — light or dark
 - **Import Plan JSON** — paste `terraform show -json` output
 - **Multi-Cloud Demo** — load the embedded example
@@ -328,7 +328,7 @@ A slim bar below the header shows the git repository root, current branch, and p
 ### Canvas
 
 - Resources are grouped by deployment level, derived from the dependency graph.
-- Each node exposes copy buttons for `terraform plan -target=...` and `terraform apply -target=...` (or `terraform destroy -target=...` for deletions).
+- Each node exposes copy buttons for the targeted plan and apply command (or destroy for deletions), in `terraform` or `atlantis` syntax depending on the header toggle.
 - Drag the background to pan, scroll to zoom, and use the bottom-left controls to reset.
 
 ### Resource inspector
@@ -338,7 +338,7 @@ The right panel is resizable (drag its edge, double-click to reset) and shows:
 - Provider, plan action, and attributes to be added, modified, or destroyed
 - Pretty-printed JSON diffs, including line-level changes for inline IAM policies and nested values
 - Upstream and downstream dependencies
-- Targeted commands and optional Atlantis commands for the selected resource
+- Targeted commands for the selected resource, in `terraform` or `atlantis` syntax depending on the header toggle
 
 Atlantis examples:
 

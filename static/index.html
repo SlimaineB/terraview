@@ -114,51 +114,50 @@
             </div>
         </div>
 
-        <!-- Top Header Filters & Search -->
-        <div class="hidden xl:flex items-center space-x-3">
+        <!-- Search, action filters with counts, and command mode -->
+        <div class="hidden xl:flex items-center space-x-2">
             <div class="relative">
                 <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5"></i>
-                <input type="text" id="search-input" oninput="filterGraph(this.value)" placeholder="Search resources..." class="w-64 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-cyan-500 transition shadow-sm">
+                <input type="text" id="search-input" oninput="filterGraph(this.value)" placeholder="Search resources..." class="w-48 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-3 py-2 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-cyan-500 transition shadow-sm">
             </div>
-            <div class="flex items-center space-x-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
-                <button onclick="filterByAction('all')" id="filter-btn-all" class="px-2 py-1.5 rounded-lg bg-cyan-600 text-white font-medium transition shadow-sm">All</button>
-                <button onclick="filterByAction('create')" id="filter-btn-create" class="px-2 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Add (+)</button>
-                <button onclick="filterByAction('update')" id="filter-btn-update" class="px-2 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Modify (~)</button>
-                <button onclick="filterByAction('replace')" id="filter-btn-replace" title="Replace" class="px-2 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition"><span class="2xl:hidden">±</span><span class="hidden 2xl:inline">Replace (±)</span></button>
-                <button onclick="filterByAction('delete')" id="filter-btn-delete" class="px-2 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Destroy (-)</button>
-                <button onclick="filterByAction('no-op')" id="filter-btn-no-op" class="px-2 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition">Existing</button>
+            <div class="flex items-center space-x-0.5 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+                <button onclick="filterByAction('all')" id="filter-btn-all" class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-800 ring-2 ring-cyan-500 shadow-sm transition whitespace-nowrap">
+                    <span>All</span>
+                    <span id="stat-total" class="font-bold text-cyan-600 dark:text-cyan-400">0</span>
+                </button>
+                <button onclick="filterByAction('create')" id="filter-btn-create" class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800 transition whitespace-nowrap">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span>Add</span>
+                    <span id="stat-create" class="font-bold text-emerald-600 dark:text-emerald-400">0</span>
+                </button>
+                <button onclick="filterByAction('update')" id="filter-btn-update" class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800 transition whitespace-nowrap">
+                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                    <span>Modify</span>
+                    <span id="stat-update" class="font-bold text-amber-600 dark:text-amber-400">0</span>
+                </button>
+                <button onclick="filterByAction('replace')" id="filter-btn-replace" title="Replace" class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800 transition whitespace-nowrap">
+                    <span class="font-bold text-violet-600 dark:text-violet-400">±</span>
+                    <span>Replace</span>
+                    <span id="stat-replace" class="font-bold text-violet-600 dark:text-violet-400">0</span>
+                </button>
+                <button onclick="filterByAction('delete')" id="filter-btn-delete" class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800 transition whitespace-nowrap">
+                    <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                    <span>Destroy</span>
+                    <span id="stat-delete" class="font-bold text-red-600 dark:text-red-400">0</span>
+                </button>
+                <button onclick="filterByAction('no-op')" id="filter-btn-no-op" class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800 transition whitespace-nowrap">
+                    <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                    <span>Existing</span>
+                    <span id="stat-noop" class="font-bold text-slate-600 dark:text-slate-300">0</span>
+                </button>
             </div>
+            <label class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 cursor-pointer select-none whitespace-nowrap" title="Copy Atlantis commands instead of terraform commands">
+                <input type="checkbox" id="atlantis-toggle" class="w-3.5 h-3.5 rounded text-cyan-600 focus:ring-cyan-500 bg-white border-slate-300 dark:bg-slate-800 dark:border-slate-600" onchange="toggleAtlantis(this.checked)">
+                <span class="text-[11px] font-medium text-slate-600 dark:text-slate-300">Atlantis</span>
+            </label>
         </div>
 
         <div class="flex items-center space-x-2">
-            <!-- Stats badges for Actions -->
-            <div class="hidden lg:flex items-center space-x-2 text-xs">
-                <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                    <span class="w-2 h-2 rounded-full bg-slate-400"></span>
-                    <span class="text-slate-500 dark:text-slate-400">Existing:</span>
-                    <span id="stat-noop" class="font-bold text-slate-700 dark:text-slate-300">0</span>
-                </div>
-                <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span class="text-slate-500 dark:text-slate-400">To Add (+):</span>
-                    <span id="stat-create" class="font-bold text-emerald-600 dark:text-emerald-400">0</span>
-                </div>
-                <div class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                    <span class="text-slate-500 dark:text-slate-400">To Modify (~):</span>
-                    <span id="stat-update" class="font-bold text-amber-600 dark:text-amber-400">0</span>
-                </div>
-                <div class="hidden 2xl:flex items-center space-x-1.5 px-2 py-1.5 rounded-lg bg-violet-500/10 border border-violet-500/30" title="Resources to replace">
-                    <span class="font-bold text-violet-600 dark:text-violet-400">±</span>
-                    <span id="stat-replace" class="font-bold text-violet-600 dark:text-violet-400">0</span>
-                </div>
-                <div class="hidden xl:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30">
-                    <span class="w-2 h-2 rounded-full bg-red-500"></span>
-                    <span class="text-slate-500 dark:text-slate-400">To Destroy (-):</span>
-                    <span id="stat-delete" class="font-bold text-red-600 dark:text-red-400">0</span>
-                </div>
-            </div>
-
             <!-- Theme Toggle Button -->
             <button onclick="toggleTheme()" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition" title="Toggle Theme">
                 <i id="theme-icon" data-lucide="sun" class="w-4 h-4"></i>
@@ -331,6 +330,7 @@
         let selectedNodeId = null;
         let activeFilter = 'all';
         let searchQuery = '';
+        let atlantisMode = false;
 
         let scale = 1;
         let panX = 50;
@@ -808,6 +808,7 @@
             }
 
             const actions = data.stats.actions || {};
+            document.getElementById('stat-total').textContent = data.nodes.length;
             document.getElementById('stat-noop').textContent = actions['no-op'] || 0;
             document.getElementById('stat-create').textContent = actions['create'] || 0;
             document.getElementById('stat-update').textContent = actions['update'] || 0;
@@ -854,10 +855,8 @@
                     card.setAttribute('data-id', node.id);
                     card.onclick = () => selectNode(node.id);
 
-                    const planCmd = `terraform plan -target=${node.id}`;
-                    const applyCmd = node.action === 'delete'
-                        ? `terraform destroy -target=${node.id}`
-                        : `terraform apply -target=${node.id}`;
+                    const planCmd = buildCommand('plan', node);
+                    const applyCmd = buildCommand('apply', node);
 
                     card.innerHTML = `
                         <div class="flex items-center justify-between mb-2">
@@ -1240,41 +1239,31 @@
                 return items.map(i => `<code class="text-xs text-orange-600 dark:text-orange-300 bg-slate-100 dark:bg-slate-950 px-2 py-1 rounded-lg block border border-slate-200 dark:border-slate-800 break-all mb-1">${i}</code>`).join('');
             };
 
-            // Atlantis / targeted action helpers
-            const atlantisCmd = (n) => {
-                if (n.action === 'delete') return `atlantis plan -- -destroy -target=${n.id}`;
-                return `atlantis plan -- -target=${n.id}`;
-            };
+            // Targeted command helpers (Terraform or Atlantis, per header toggle)
+            const planCmd = buildCommand('plan', node);
+            const applyCmd = buildCommand('apply', node);
+            const importCmd = `terraform import ${node.id} <RESOURCE_ID>`;
+            const modeLabel = atlantisMode ? 'Atlantis' : 'Terraform';
+            const cmdBlock = `${planCmd}\n${applyCmd}`;
 
             const targetCmds = `
                 <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
                     <div class="flex items-center justify-between">
-                        <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Atlantis / Targeted Plan</span>
-                        <label class="flex items-center space-x-1 cursor-pointer">
-                            <input type="checkbox" class="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 bg-slate-700 border-slate-600" onchange="this.closest('div').parentElement.querySelector('.atlantis-cmd').classList.toggle('hidden')">
-                            <span class="text-[10px] text-slate-500 dark:text-slate-400">Show Atlantis command</span>
-                        </label>
+                        <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">${modeLabel} / Targeted Commands</span>
+                        <button onclick='copyAction(${JSON.stringify(cmdBlock)}, this)' class="text-[9px] text-cyan-600 dark:text-cyan-400 hover:underline">copy all</button>
                     </div>
 
-                    <!-- Individual quick buttons -->
-                    <div class="flex flex-wrap gap-1.5 mb-1">
-                        <button onclick="copyToClipboard('terraform plan -target=${escapeHtml(node.id)}')" class="text-xs px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition shadow-sm">plan -target</button>
-                        ${node.action !== 'delete' ? `<button onclick="copyToClipboard('terraform apply -target=${escapeHtml(node.id)}')" class="text-xs px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition shadow-sm">apply -target</button>` : ``}
-                        ${node.action === 'delete' ? `<button onclick="copyToClipboard('terraform destroy -target=${escapeHtml(node.id)}')" class="text-xs px-2 py-1 rounded bg-red-50 text-red-700 border border-red-300 hover:bg-red-100 hover:text-red-900 transition shadow-sm">destroy -target</button>` : ``}
+                    <div class="flex flex-wrap gap-1.5">
+                        <button onclick='copyAction(${JSON.stringify(planCmd)}, this)' class="text-xs px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition shadow-sm">plan -target</button>
+                        <button onclick='copyAction(${JSON.stringify(applyCmd)}, this)' class="text-xs px-2 py-1 rounded ${node.action === 'delete' ? 'bg-red-50 text-red-700 border border-red-300 hover:bg-red-100 hover:text-red-900' : 'bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'} transition shadow-sm">${node.action === 'delete' ? 'destroy -target' : 'apply -target'}</button>
                     </div>
 
-                    <!-- Full Atlantis command block -->
-                    <div class="hidden">
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="text-[9px] text-slate-400 italic">Full command for MR:</span>
-                            <button onclick="copyToClipboard(this.parentElement.parentElement.querySelector('pre').textContent)" class="text-[9px] text-orange-600 dark:text-orange-400 hover:underline">copy</button>
-                        </div>
-                        <pre class="text-[10px] font-mono bg-white dark:bg-slate-950 p-2 rounded border border-slate-200 dark:border-slate-700 overflow-x-auto break-all text-slate-700 dark:text-slate-300 leading-tight">${escapeHtml(atlantisCmd(node))}</pre>
-                        <p class="text-[9px] text-slate-400 dark:text-slate-500 mt-1.5 leading-snug">Post this as a PR comment, then run <code class="text-slate-600 dark:text-slate-300">atlantis apply</code> after reviewing the plan. Add <code class="text-slate-600 dark:text-slate-300">-d &lt;dir&gt;</code> or <code class="text-slate-600 dark:text-slate-300">-p &lt;project&gt;</code> if the repo has multiple Atlantis projects.</p>
-                    </div>
+                    <pre class="text-[10px] font-mono bg-white dark:bg-slate-950 p-2 rounded border border-slate-200 dark:border-slate-700 overflow-x-auto break-all text-slate-700 dark:text-slate-300 leading-tight">${escapeHtml(cmdBlock)}</pre>
 
-                    <div class="flex items-center space-x-2 mt-1">
-                        <button onclick="copyToClipboard('terraform import ${escapeHtml(node.id)} &lt;RESOURCE_ID&gt;')" class="text-xs px-2 py-1 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition shadow-sm">import</button>
+                    ${atlantisMode ? `<p class="text-[9px] text-slate-400 dark:text-slate-500 leading-snug">Post <code class="text-slate-600 dark:text-slate-300">atlantis plan</code> as a PR comment, then run <code class="text-slate-600 dark:text-slate-300">atlantis apply</code> after reviewing. Add <code class="text-slate-600 dark:text-slate-300">-d &lt;dir&gt;</code> or <code class="text-slate-600 dark:text-slate-300">-p &lt;project&gt;</code> if the repo has multiple Atlantis projects.</p>` : ``}
+
+                    <div class="flex items-center space-x-2">
+                        <button onclick='copyAction(${JSON.stringify(importCmd)}, this)' class="text-xs px-2 py-1 rounded bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition shadow-sm">import</button>
                         <span class="text-[9px] text-slate-400 italic">replace &lt;RESOURCE_ID&gt;</span>
                     </div>
                 </div>
@@ -1372,18 +1361,39 @@
 
         function filterByAction(action) {
             activeFilter = action;
-            // Update active button styling
             ['all', 'create', 'update', 'replace', 'delete', 'no-op'].forEach(act => {
                 const btn = document.getElementById(`filter-btn-${act}`);
-                if (btn) {
-                    if (act === action) {
-                        btn.className = 'px-2 py-1.5 rounded-lg bg-orange-600 text-white font-medium transition shadow-sm';
-                    } else {
-                        btn.className = 'px-2 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium transition';
-                    }
-                }
+                if (!btn) return;
+                const active = act === action;
+                btn.classList.toggle('bg-white', active);
+                btn.classList.toggle('dark:bg-slate-800', active);
+                btn.classList.toggle('ring-2', active);
+                btn.classList.toggle('ring-cyan-500', active);
+                btn.classList.toggle('shadow-sm', active);
+                btn.classList.toggle('text-slate-900', active);
+                btn.classList.toggle('dark:text-white', active);
+                btn.classList.toggle('text-slate-600', !active);
+                btn.classList.toggle('dark:text-slate-300', !active);
             });
             if (currentData) renderDAG(currentData);
+        }
+
+        function toggleAtlantis(on) {
+            atlantisMode = !!on;
+            if (!currentData) return;
+            renderDAG(currentData);
+            if (selectedNodeId) showInspector(selectedNodeId);
+        }
+
+        function buildCommand(kind, node) {
+            const destroyFlag = node.action === 'delete' ? '-destroy ' : '';
+            if (atlantisMode) {
+                if (kind === 'plan') return `atlantis plan -- ${destroyFlag}-target=${node.id}`;
+                return `atlantis apply -- ${destroyFlag}-target=${node.id}`;
+            }
+            if (kind === 'plan') return `terraform plan ${destroyFlag}-target=${node.id}`;
+            if (node.action === 'delete') return `terraform destroy -target=${node.id}`;
+            return `terraform apply -target=${node.id}`;
         }
 
         function filterGraph(query) {
