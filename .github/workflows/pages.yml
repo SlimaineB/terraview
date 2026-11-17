@@ -2,9 +2,15 @@ name: Pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
+      - 'src/**'
+      - 'public/**'
       - 'docs/**'
+      - 'astro.config.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/sync-docs.mjs'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -18,25 +24,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  build:
+    name: Build Astro site
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.4'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
   deploy:
-    name: Deploy landing page
+    name: Deploy to GitHub Pages
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Configure Pages
-        uses: actions/configure-pages@v6
-
-      - name: Upload site
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: docs
-
-      - name: Deploy to GitHub Pages
+      - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v5

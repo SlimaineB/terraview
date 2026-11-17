@@ -1,0 +1,47 @@
+---
+import logo from '../assets/logo.svg';
+
+const base = import.meta.env.BASE_URL;
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="shell footer-grid">
+    <div class="footer-brand">
+      <a class="brand" href={base}>
+        <img src={logo.src} width="32" height="32" alt="" />
+        <span>TerraView</span>
+      </a>
+      <p>Turn Terraform plan JSON into an interactive dependency graph with diffs and Atlantis commands. One binary. Any provider.</p>
+    </div>
+
+    <div class="footer-links">
+      <div>
+        <h3>Product</h3>
+        <a href={`${base}#why`}>Why TerraView</a>
+        <a href={`${base}#getting-started`}>Quick start</a>
+        <a href={`${base}#example`}>Example</a>
+        <a href={`${base}#features`}>Features</a>
+      </div>
+      <div>
+        <h3>Docs</h3>
+        <a href={`${base}overview/`}>Overview</a>
+        <a href={`${base}install/`}>Install</a>
+        <a href={`${base}usage/`}>Usage</a>
+        <a href={`${base}ui/`}>UI guide</a>
+        <a href={`${base}ci/`}>CI reports</a>
+      </div>
+      <div>
+        <h3>Project</h3>
+        <a href="https://github.com/SlimaineB/terraview">GitHub</a>
+        <a href="https://github.com/SlimaineB/terraview/releases">Releases</a>
+        <a href={`${base}development/`}>Development</a>
+        <a href="https://github.com/SlimaineB/terraview/blob/main/README.md">README</a>
+      </div>
+    </div>
+  </div>
+  <div class="shell footer-bottom">
+    <span>&copy; {year} TerraView</span>
+    <span>MIT licensed · Built with Go · <a href="https://github.com/SlimaineB/terraview">GitHub</a></span>
+  </div>
+</footer>

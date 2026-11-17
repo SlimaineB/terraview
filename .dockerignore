@@ -1,0 +1,20 @@
+# Developer-only files: never needed to build the binary.
+.git
+.github
+docs
+scripts
+Makefile
+README.md
+terraview
+plan.json
+terraview-report.html
+
+# Astro docs site
+src
+public
+node_modules
+site
+.astro
+package.json
+package-lock.json
+astro.config.mjs

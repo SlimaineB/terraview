@@ -44,6 +44,11 @@ jobs:
       - name: go test
         run: go test ./...
 
+      - name: Check shell scripts
+        run: |
+          bash -n scripts/open-pr.sh
+          bash -n scripts/check-base.sh
+
       - name: Validate inline HTML scripts
         run: |
           node -e '

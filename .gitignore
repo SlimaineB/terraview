@@ -1,2 +1,11 @@
 terraview
 /plan.json
+
+# Astro
+node_modules/
+site/
+.astro/
+src/content/docs/
+
+# OS
+.DS_Store
