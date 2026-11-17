@@ -113,7 +113,7 @@ func (s *planStore) get(id string) (*graph.Data, error) {
 		data.Project = plan.Project
 		data.Env = plan.Env
 		data.Workspace = plan.Workspace
-		data.SetRepoContext(s.repo.Path, s.repo.Branch)
+		data.SetRepoContext(s.repo)
 		entry.data = data
 	})
 	return entry.data, entry.err

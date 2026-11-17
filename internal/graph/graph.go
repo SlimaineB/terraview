@@ -1,5 +1,7 @@
 package graph
 
+import "terraview/internal/gitcontext"
+
 type Node struct {
 	ID       string                 `json:"id"`
 	Label    string                 `json:"label"`
@@ -32,14 +34,20 @@ type Data struct {
 	Workspace         string `json:"workspace,omitempty"`
 	GitPath           string `json:"git_path,omitempty"`
 	GitBranch         string `json:"git_branch,omitempty"`
+	GitDirty          bool   `json:"git_dirty,omitempty"`
+	GitUnpushed       bool   `json:"git_unpushed,omitempty"`
+	GitAhead          int    `json:"git_ahead,omitempty"`
 }
 
-func (d *Data) SetRepoContext(path, branch string) {
+func (d *Data) SetRepoContext(ctx gitcontext.Context) {
 	if d == nil {
 		return
 	}
-	d.GitPath = path
-	d.GitBranch = branch
+	d.GitPath = ctx.Path
+	d.GitBranch = ctx.Branch
+	d.GitDirty = ctx.Dirty
+	d.GitUnpushed = ctx.Unpushed
+	d.GitAhead = ctx.Ahead
 }
 
 type Stats struct {

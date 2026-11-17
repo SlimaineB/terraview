@@ -87,6 +87,10 @@
             transform: translateY(-2px);
             box-shadow: 0 12px 30px -10px rgba(14, 165, 233, 0.25);
         }
+        .node-card.bulk-selected {
+            outline: 2px solid #22d3ee;
+            outline-offset: -2px;
+        }
         #dag-transform-layer {
             transform-origin: 0 0;
             transition: transform 0.1s ease-out;
@@ -167,10 +171,6 @@
                 <i data-lucide="upload-cloud" class="w-4 h-4"></i>
                 <span>Import Plan JSON</span>
             </button>
-            <button onclick="loadDemoData()" class="flex items-center space-x-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-medium text-sm transition">
-                <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i>
-                <span>Multi-Cloud Demo</span>
-            </button>
             <button onclick="toggleRawJson()" id="raw-json-btn" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition" title="View Raw JSON">
                 <i data-lucide="code-2" class="w-4 h-4"></i>
             </button>
@@ -193,6 +193,10 @@
             <i data-lucide="git-branch" class="h-3 w-3 text-cyan-600 dark:text-cyan-400"></i>
             <span id="repo-branch" class="font-mono text-[11px] font-semibold text-slate-700 dark:text-slate-200"></span>
         </div>
+        <div id="git-warning" class="hidden shrink-0 items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2 py-0.5 text-amber-700 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+            <i data-lucide="alert-triangle" class="h-3 w-3"></i>
+            <span id="git-warning-text" class="text-[11px] font-medium"></span>
+        </div>
         <div class="hidden shrink-0 items-center gap-1.5 md:flex">
             <i data-lucide="file-json" class="h-3.5 w-3.5 text-slate-400"></i>
             <span id="context-source" class="max-w-[220px] truncate font-mono text-[11px]"></span>
@@ -212,6 +216,32 @@
         </div>
         <div class="flex-1 overflow-auto custom-scrollbar p-0">
             <pre id="raw-json-content" class="h-full text-xs font-mono text-slate-300 dark:text-slate-400 p-4 m-0 whitespace-pre-wrap overflow-auto"></pre>
+        </div>
+    </div>
+
+    <!-- Bulk Command Panel -->
+    <div id="bulk-command-panel" class="absolute bottom-0 left-0 right-0 h-[30vh] bg-slate-900 dark:bg-black/90 border-t border-slate-200 dark:border-slate-800 z-40 transform translate-y-full transition-transform duration-300 flex flex-col hidden">
+        <div class="h-11 border-b border-slate-700 bg-slate-800 dark:bg-slate-950 flex items-center justify-between px-4 gap-3">
+            <div class="flex items-center space-x-2 min-w-0">
+                <i data-lucide="terminal" class="w-4 h-4 text-cyan-400 shrink-0"></i>
+                <span class="text-xs font-bold text-slate-300 dark:text-slate-100 uppercase tracking-wider whitespace-nowrap">Bulk Command</span>
+                <span id="bulk-count" class="text-[11px] text-cyan-300 whitespace-nowrap">0 selected</span>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+                <div class="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-700 text-[11px]">
+                    <button onclick="setBulkMode('plan')" id="bulk-mode-plan" class="px-2 py-1 rounded-md bg-cyan-600 text-white font-semibold">plan</button>
+                    <button onclick="setBulkMode('apply')" id="bulk-mode-apply" class="px-2 py-1 rounded-md text-slate-300 hover:text-white">apply</button>
+                    <button onclick="setBulkMode('destroy')" id="bulk-mode-destroy" class="px-2 py-1 rounded-md text-slate-300 hover:text-white">destroy</button>
+                </div>
+                <button onclick="selectAllVisible()" class="px-2 py-1 rounded-md bg-slate-700 hover:bg-slate-600 text-slate-200 text-[11px]">Select all</button>
+                <button onclick="clearBulk()" class="px-2 py-1 rounded-md bg-slate-700 hover:bg-slate-600 text-slate-200 text-[11px]">Clear</button>
+                <button onclick="copyBulk(this)" class="px-2 py-1 rounded-md bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-semibold flex items-center gap-1">
+                    <i data-lucide="copy" class="w-3 h-3"></i>Copy
+                </button>
+            </div>
+        </div>
+        <div class="flex-1 overflow-auto custom-scrollbar p-0">
+            <pre id="bulk-command-content" class="h-full text-xs font-mono text-slate-200 p-4 m-0 whitespace-pre-wrap overflow-auto"></pre>
         </div>
     </div>
 
@@ -331,6 +361,10 @@
         let activeFilter = 'all';
         let searchQuery = '';
         let atlantisMode = false;
+        let bulkSelected = new Set();
+        let bulkMode = 'plan';
+        let visibleNodeIds = [];
+        let rawOpen = false;
 
         let scale = 1;
         let panX = 50;
@@ -528,6 +562,7 @@
             const panel = document.getElementById('raw-json-panel');
             const btn = document.getElementById('raw-json-btn');
             const isHidden = panel.classList.contains('hidden');
+            rawOpen = isHidden;
             if (isHidden) {
                 panel.classList.remove('hidden');
                 panel.classList.remove('translate-y-full');
@@ -540,6 +575,7 @@
                 panel.classList.add('translate-y-full');
                 btn.classList.remove('text-orange-600', 'dark:text-orange-400');
             }
+            updateBulkCommand();
             lucide.createIcons();
         }
 
@@ -679,11 +715,6 @@
             return true;
         }
 
-        async function loadDemoData() {
-            const loaded = await fetchAndApply('/api/demo');
-            if (!loaded) await fetchAndApply('/api/graph');
-        }
-
         async function fetchAndApply(url) {
             try {
                 const res = await fetch(url);
@@ -736,6 +767,32 @@
                 branchWrap.classList.toggle('flex', Boolean(branch));
             }
             if (branchEl) branchEl.textContent = branch;
+
+            const gitWarning = document.getElementById('git-warning');
+            const gitWarningText = document.getElementById('git-warning-text');
+            if (gitWarning) {
+                const dirty = Boolean(data && data.git_dirty);
+                const unpushed = Boolean(data && data.git_unpushed);
+                const ahead = data && data.git_ahead ? data.git_ahead : 0;
+                const detached = branch.startsWith('detached');
+                const parts = [];
+                if (detached) {
+                    parts.push('Detached HEAD');
+                }
+                if (dirty) {
+                    parts.push('Uncommitted changes');
+                }
+                if (unpushed && !detached) {
+                    parts.push(ahead > 0
+                        ? `${ahead} unpushed commit${ahead > 1 ? 's' : ''}`
+                        : 'Branch not pushed');
+                }
+                const show = parts.length > 0 && Boolean(branch || path);
+                gitWarning.classList.toggle('hidden', !show);
+                gitWarning.classList.toggle('flex', show);
+                if (gitWarningText) gitWarningText.textContent = parts.join(' · ');
+            }
+
             if (sourceEl) {
                 sourceEl.textContent = source;
                 sourceEl.title = source;
@@ -746,6 +803,8 @@
             if (!data || !data.nodes) return;
             currentData = data;
             selectedNodeId = null;
+            bulkSelected.clear();
+            bulkMode = 'plan';
             const label = data.plan_label || planSourceLabel(data.source);
             const branch = data.git_branch ? ` · ${data.git_branch}` : '';
             document.title = label
@@ -825,6 +884,7 @@
             }
 
             const nodeIds = new Set(nodes.map(n => n.id));
+            visibleNodeIds = nodes.map(n => n.id);
             let edges = (data.edges || []).filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
 
             const levels = computeLevels(nodes, edges);
@@ -850,8 +910,9 @@
                     const style = actionStyles[node.action] || actionStyles['no-op'];
                     const selectedRing = isSelected ? 'ring-4 ring-orange-500 shadow-2xl' : '';
                     const iconName = getIconForType(node.type);
+                    const isBulk = bulkSelected.has(node.id);
 
-                    card.className = `node-card ${style.bgLight} backdrop-blur-md p-4 rounded-2xl border-2 ${style.border} ${selectedRing} cursor-pointer relative group shadow-sm min-w-0 overflow-hidden`;
+                    card.className = `node-card ${style.bgLight} backdrop-blur-md p-4 rounded-2xl border-2 ${style.border} ${selectedRing} ${isBulk ? 'bulk-selected' : ''} cursor-pointer relative group shadow-sm min-w-0 overflow-hidden`;
                     card.setAttribute('data-id', node.id);
                     card.onclick = () => selectNode(node.id);
 
@@ -860,8 +921,9 @@
 
                     card.innerHTML = `
                         <div class="flex items-center justify-between mb-2">
-                            <div class="flex items-center space-x-2">
-                                <div class="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center">
+                            <div class="flex items-center space-x-2 min-w-0">
+                                <input type="checkbox" class="bulk-check w-4 h-4 shrink-0 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer" onclick="event.stopPropagation()" title="Select for bulk command" ${isBulk ? 'checked' : ''}>
+                                <div class="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
                                     <i data-lucide="${iconName}" class="w-4 h-4"></i>
                                 </div>
                                 <span class="text-[11px] font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide truncate max-w-[130px]">${escapeHtml(node.type)}</span>
@@ -888,6 +950,8 @@
                     card.querySelector('[data-act="plan"]').onclick = (e) => { e.stopPropagation(); copyAction(planCmd, e.currentTarget); };
                     card.querySelector('[data-act="apply"]').onclick = (e) => { e.stopPropagation(); copyAction(applyCmd, e.currentTarget); };
                     card.querySelector('[data-act="inspect"]').onclick = (e) => { e.stopPropagation(); selectNode(node.id); };
+                    const bulkCheck = card.querySelector('.bulk-check');
+                    bulkCheck.onchange = (e) => { e.stopPropagation(); toggleBulk(node.id, bulkCheck.checked, card); };
                     listDiv.appendChild(card);
                 });
 
@@ -899,6 +963,7 @@
                 drawSvgEdges(edges);
                 lucide.createIcons();
             }, 50);
+            updateBulkCommand();
         }
 
         function computeLevels(nodes, edges) {
@@ -1394,6 +1459,83 @@
             if (kind === 'plan') return `terraform plan ${destroyFlag}-target=${node.id}`;
             if (node.action === 'delete') return `terraform destroy -target=${node.id}`;
             return `terraform apply -target=${node.id}`;
+        }
+
+        function toggleBulk(id, on, card) {
+            if (on) {
+                bulkSelected.add(id);
+            } else {
+                bulkSelected.delete(id);
+            }
+            if (card) card.classList.toggle('bulk-selected', on);
+            updateBulkCommand();
+        }
+
+        function selectAllVisible() {
+            visibleNodeIds.forEach(id => bulkSelected.add(id));
+            if (currentData) renderDAG(currentData);
+        }
+
+        function clearBulk() {
+            bulkSelected.clear();
+            if (currentData) renderDAG(currentData);
+            updateBulkCommand();
+        }
+
+        function setBulkMode(mode) {
+            bulkMode = mode;
+            renderBulkModeButtons();
+            updateBulkCommand();
+        }
+
+        function renderBulkModeButtons() {
+            ['plan', 'apply', 'destroy'].forEach(m => {
+                const btn = document.getElementById(`bulk-mode-${m}`);
+                if (!btn) return;
+                btn.className = m === bulkMode
+                    ? 'px-2 py-1 rounded-md bg-cyan-600 text-white font-semibold'
+                    : 'px-2 py-1 rounded-md text-slate-300 hover:text-white';
+            });
+        }
+
+        function buildBulkCommand() {
+            const targets = [...bulkSelected].sort();
+            if (targets.length === 0) return '';
+            const args = targets.map(t => `-target=${t}`).join(' ');
+            if (bulkMode === 'destroy') {
+                return atlantisMode ? `atlantis apply -- -destroy ${args}` : `terraform destroy ${args}`;
+            }
+            return atlantisMode
+                ? `atlantis ${bulkMode} -- ${args}`
+                : `terraform ${bulkMode} ${args}`;
+        }
+
+        function updateBulkCommand() {
+            const panel = document.getElementById('bulk-command-panel');
+            const countEl = document.getElementById('bulk-count');
+            const contentEl = document.getElementById('bulk-command-content');
+            const count = bulkSelected.size;
+            const cmd = buildBulkCommand();
+
+            if (countEl) countEl.textContent = `${count} selected`;
+            if (contentEl) {
+                contentEl.textContent = count > 0
+                    ? cmd
+                    : 'Select resources with the checkboxes to build a command.';
+            }
+
+            const show = count > 0 && !rawOpen;
+            if (panel) {
+                panel.classList.toggle('hidden', !show);
+                panel.classList.toggle('translate-y-full', !show);
+            }
+            renderBulkModeButtons();
+            lucide.createIcons();
+        }
+
+        function copyBulk(btn) {
+            const cmd = buildBulkCommand();
+            if (cmd) copyAction(cmd, btn);
         }
 
         function filterGraph(query) {

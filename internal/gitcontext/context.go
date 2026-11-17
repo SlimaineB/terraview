@@ -4,13 +4,19 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
 
 type Context struct {
-	Path   string
-	Branch string
+	Path     string
+	Branch   string
+	Dirty    bool
+	Upstream string
+	Ahead    int
+	Behind   int
+	Unpushed bool
 }
 
 func Detect(startDir string) Context {
@@ -41,7 +47,49 @@ func Detect(startDir string) Context {
 			branch = "detached @ " + sha
 		}
 	}
-	return Context{Path: root, Branch: branch}
+
+	ctx := Context{Path: root, Branch: branch}
+	loadStatus(root, &ctx)
+
+	if branch == "" || strings.HasPrefix(branch, "detached") {
+		ctx.Unpushed = true
+	} else if ctx.Upstream == "" {
+		ctx.Unpushed = true
+	} else if ctx.Ahead > 0 {
+		ctx.Unpushed = true
+	}
+
+	return ctx
+}
+
+// loadStatus reads branch, ahead/behind, and working-tree state in one call.
+func loadStatus(root string, ctx *Context) {
+	status := gitOutput(root, "status", "--porcelain=v2", "--branch", "--untracked-files=normal")
+	if status == "" {
+		// Empty means the command failed or timed out; avoid false warnings.
+		return
+	}
+
+	for _, line := range strings.Split(status, "\n") {
+		line = strings.TrimRight(line, "\r")
+		switch {
+		case strings.HasPrefix(line, "# branch.upstream "):
+			ctx.Upstream = strings.TrimSpace(strings.TrimPrefix(line, "# branch.upstream "))
+		case strings.HasPrefix(line, "# branch.ab "):
+			for _, f := range strings.Fields(strings.TrimPrefix(line, "# branch.ab ")) {
+				switch {
+				case strings.HasPrefix(f, "+"):
+					ctx.Ahead, _ = strconv.Atoi(f[1:])
+				case strings.HasPrefix(f, "-"):
+					ctx.Behind, _ = strconv.Atoi(f[1:])
+				}
+			}
+		case strings.HasPrefix(line, "#") || line == "":
+			// Branch header or blank line.
+		default:
+			ctx.Dirty = true
+		}
+	}
 }
 
 func gitOutput(dir string, args ...string) string {

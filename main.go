@@ -253,7 +253,7 @@ func main() {
 	}
 
 	repo := gitcontext.Detect(startDir)
-	plan.SetRepoContext(repo.Path, repo.Branch)
+	plan.SetRepoContext(repo)
 
 	if *staticMode {
 		if plan == nil {

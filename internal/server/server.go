@@ -50,7 +50,7 @@ func handleGraph(cfg Config, store *planStore) http.HandlerFunc {
 				return
 			}
 			if cfg.Plan != nil {
-				cfg.Plan.SetRepoContext(cfg.Repo.Path, cfg.Repo.Branch)
+				cfg.Plan.SetRepoContext(cfg.Repo)
 				writeGraphJSON(w, cfg.Plan)
 				return
 			}
@@ -72,7 +72,7 @@ func handleGraph(cfg Config, store *planStore) http.HandlerFunc {
 				return
 			}
 			data.Source = "upload"
-			data.SetRepoContext(cfg.Repo.Path, cfg.Repo.Branch)
+			data.SetRepoContext(cfg.Repo)
 			writeGraphJSON(w, data)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -101,7 +101,7 @@ func demoGraph(cfg Config) (*graph.Data, error) {
 		return nil, err
 	}
 	data.Source = "demo"
-	data.SetRepoContext(cfg.Repo.Path, cfg.Repo.Branch)
+	data.SetRepoContext(cfg.Repo)
 	return data, nil
 }
 

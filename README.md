@@ -36,10 +36,11 @@ TerraView prints its local URL and opens the graph. When launched inside a git w
 | **Diff inspector** | Resizable side panel with formatted `before` → `after` JSON, including line-level diffs for inline policies and other structured values |
 | **Atlantis commands** | Per-resource `plan -target`, `apply -target`, `destroy -target`, and `import` copy buttons |
 | **Node quick actions** | Copy `terraform plan` / `apply` / `destroy` commands directly from a node |
-| **Search & filters** | Filter by resource ID/type/name and by action, including Replace and Destroy |
+| **Bulk selection** | Tick resources and get one multi-target command, shown live in a bottom panel |
+| **Search & filters** | Filter by resource ID/type/name and by action, including Replace and Destroy; counts merged into the filter chips |
 | **Zoom & pan** | Mouse-wheel zoom, drag-to-pan, and reset controls |
 | **Themes & raw JSON** | Light/dark mode and a bottom panel with the full plan JSON |
-| **Git context** | Repository root and current branch shown in the UI when the plan comes from a git work tree |
+| **Git context** | Repository root and branch shown in the UI, with a warning for uncommitted changes or unpushed commits |
 | **Multi-plan manifest** | Load project/env/workspace plans from one JSON manifest and switch between them in a single UI |
 | **Static report** | Export a single HTML file — no server required (ideal for CI artifacts) |
 | **Pipe & view** | `terraform show -json tfplan \| terraview` loads the plan and opens the browser |
@@ -122,7 +123,7 @@ terraview          # prebuilt binary
 go run .           # from source
 ```
 
-Open the URL printed by TerraView and click **Multi-Cloud Demo** to load the built-in example (15 resources, create/update/no-op/delete actions).
+Open the URL printed by TerraView. When no plan is provided, the embedded demo loads automatically (15 resources, create/update/no-op/delete actions).
 
 ### Multiple instances
 
@@ -318,18 +319,33 @@ terraview_report:
 - **Atlantis toggle** — switch copied commands between `terraform` and `atlantis` syntax
 - **Theme toggle** — light or dark
 - **Import Plan JSON** — paste `terraform show -json` output
-- **Multi-Cloud Demo** — load the embedded example
 - **Raw JSON** — open the full plan JSON in a bottom panel
 
 ### Repository context
 
 A slim bar below the header shows the git repository root, current branch, and plan source (file name, `stdin`, uploaded plan, or demo) whenever that context is available. Long paths are truncated visually and shown in full on hover.
 
+When the working tree has uncommitted changes, the branch has unpushed commits, is missing an upstream, or is a detached HEAD, an amber warning chip appears in the same bar. This reflects the repository's current state, not a guarantee about when the plan was generated.
+
 ### Canvas
 
 - Resources are grouped by deployment level, derived from the dependency graph.
 - Each node exposes copy buttons for the targeted plan and apply command (or destroy for deletions), in `terraform` or `atlantis` syntax depending on the header toggle.
+- Tick one or more node checkboxes to build a single multi-target command; the live command appears in the bottom **Bulk Command** panel.
 - Drag the background to pan, scroll to zoom, and use the bottom-left controls to reset.
+
+### Bulk Command panel
+
+Selecting resources opens a bottom panel with a live command that targets every ticked resource in one shot:
+
+```bash
+atlantis plan -- -target=aws_vpc.main -target=aws_subnet.public -target=aws_db_instance.postgres
+```
+
+- Switch between `plan`, `apply`, and `destroy`, and between `terraform`/`atlantis` with the header toggle.
+- **Select all** picks all currently visible (filtered) resources; **Clear** empties the selection.
+- **Copy** copies the live command. The panel hides when nothing is selected and yields to the Raw JSON panel when that opens.
+
 
 ### Resource inspector
 
