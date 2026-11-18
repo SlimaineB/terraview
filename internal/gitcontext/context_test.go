@@ -60,3 +60,9 @@ func TestDetect(t *testing.T) {
 		t.Errorf("branch = %q, want detached @ <sha>", got.Branch)
 	}
 }
+
+func TestDetectRepoDoesNotFallBackToCwd(t *testing.T) {
+	if got := DetectRepo(t.TempDir()); got.Path != "" {
+		t.Fatalf("DetectRepo on a non-repo dir = %+v, want empty", got)
+	}
+}

@@ -114,6 +114,14 @@ func TestCommitMRFullFlow(t *testing.T) {
 	t.Setenv("TERRAVIEW_GITHUB_API_BASE", api.URL)
 
 	dir := setupRepo(t, "feature/x")
+	// Keep the remote URL pointing at GitHub (for parsing) but push to a
+	// local bare repository so the test stays offline.
+	bare := filepath.Join(t.TempDir(), "origin.git")
+	if err := os.MkdirAll(bare, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gitT(t, bare, "init", "--bare", "-b", "main")
+	gitT(t, dir, "remote", "set-url", "--push", "origin", bare)
 	if err := os.WriteFile(filepath.Join(dir, "main.tf"), []byte("resource \"null_resource\" \"x\" {}"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -127,8 +135,11 @@ func TestCommitMRFullFlow(t *testing.T) {
 	if resp.URL != "https://github.com/acme/infra/pull/42" {
 		t.Errorf("url = %q", resp.URL)
 	}
-	if !resp.Committed || resp.Pushed {
-		t.Errorf("committed=%v pushed=%v, want committed=true pushed=false (upstream up to date)", resp.Committed, resp.Pushed)
+	if !resp.Committed || !resp.Pushed {
+		t.Errorf("committed=%v pushed=%v, want both true", resp.Committed, resp.Pushed)
+	}
+	if out := gitT(t, bare, "rev-parse", "--verify", "refs/heads/feature/x"); out == "" {
+		t.Error("branch was not pushed to the remote")
 	}
 	if resp.Branch != "feature/x" || resp.Base != "main" {
 		t.Errorf("branch=%q base=%q", resp.Branch, resp.Base)
@@ -185,5 +196,30 @@ func TestCommitMRNoToken(t *testing.T) {
 	code, resp := postCMR(t, h, `{"message":"x"}`)
 	if code != http.StatusBadRequest || !strings.Contains(resp.Message, "no API token") {
 		t.Fatalf("code=%d resp=%+v", code, resp)
+	}
+}
+
+func TestCurrentRepoContextRefreshes(t *testing.T) {
+	dir := setupRepo(t, "feature/x")
+	snapshot := gitcontext.Detect(dir)
+	if snapshot.Dirty {
+		t.Fatal("fresh repo should be clean")
+	}
+	cfg := Config{Repo: snapshot}
+	if got := currentRepoContext(cfg); got.Dirty {
+		t.Fatal("clean repo reported dirty")
+	}
+	if err := os.WriteFile(filepath.Join(dir, "a.tf"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := currentRepoContext(cfg)
+	if !got.Dirty {
+		t.Fatal("expected dirty after writing a file")
+	}
+	if got.Branch != "feature/x" {
+		t.Errorf("branch = %q, want feature/x", got.Branch)
+	}
+	if cfg.Repo.Dirty {
+		t.Error("startup snapshot must not be mutated")
 	}
 }

@@ -105,6 +105,12 @@ func handleCommitMR(cfg Config) http.HandlerFunc {
 			return
 		}
 		resp.Committed = committed
+		if committed {
+			// Re-read the state: the new commit may put the branch ahead.
+			if fresh := gitcontext.DetectRepo(repo.Path); fresh.Path != "" {
+				repo = fresh
+			}
+		}
 
 		// Push only when needed: no upstream yet, or local commits ahead.
 		if repo.Upstream == "" || repo.Ahead > 0 {

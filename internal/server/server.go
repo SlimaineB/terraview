@@ -33,6 +33,19 @@ func New(cfg Config) http.Handler {
 	return mux
 }
 
+// currentRepoContext re-detects the repository state on each request so the
+// branch, dirty flag, and ahead count stay accurate while the server runs
+// (for example right after a commit made from the UI).
+func currentRepoContext(cfg Config) gitcontext.Context {
+	if cfg.Repo.Path == "" {
+		return cfg.Repo
+	}
+	if fresh := gitcontext.DetectRepo(cfg.Repo.Path); fresh.Path != "" {
+		return fresh
+	}
+	return cfg.Repo
+}
+
 func handleGraph(cfg Config, store *planStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -47,11 +60,12 @@ func handleGraph(cfg Config, store *planStore) http.HandlerFunc {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
+				data.SetRepoContext(currentRepoContext(cfg))
 				writeGraphJSON(w, data)
 				return
 			}
 			if cfg.Plan != nil {
-				cfg.Plan.SetRepoContext(cfg.Repo)
+				cfg.Plan.SetRepoContext(currentRepoContext(cfg))
 				writeGraphJSON(w, cfg.Plan)
 				return
 			}
@@ -73,7 +87,7 @@ func handleGraph(cfg Config, store *planStore) http.HandlerFunc {
 				return
 			}
 			data.Source = "upload"
-			data.SetRepoContext(cfg.Repo)
+			data.SetRepoContext(currentRepoContext(cfg))
 			writeGraphJSON(w, data)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -102,7 +116,7 @@ func demoGraph(cfg Config) (*graph.Data, error) {
 		return nil, err
 	}
 	data.Source = "demo"
-	data.SetRepoContext(cfg.Repo)
+	data.SetRepoContext(currentRepoContext(cfg))
 	return data, nil
 }
 

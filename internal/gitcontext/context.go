@@ -19,8 +19,23 @@ type Context struct {
 	Unpushed bool
 }
 
+// Detect inspects startDir, falling back to the process working directory
+// when the path is not inside a work tree.
 func Detect(startDir string) Context {
+	return detect(startDir, true)
+}
+
+// DetectRepo inspects dir as a work tree without falling back to the process
+// working directory. Used to refresh an already-known repository.
+func DetectRepo(dir string) Context {
+	return detect(dir, false)
+}
+
+func detect(startDir string, allowCwdFallback bool) Context {
 	if startDir == "" {
+		if !allowCwdFallback {
+			return Context{}
+		}
 		if cwd, err := os.Getwd(); err == nil {
 			startDir = cwd
 		}
@@ -30,7 +45,7 @@ func Detect(startDir string) Context {
 	}
 
 	root := gitOutput(startDir, "rev-parse", "--show-toplevel")
-	if root == "" {
+	if root == "" && allowCwdFallback {
 		// A plan can live outside the work tree (for example /tmp/plan.json)
 		// while TerraView is started from a repository. Prefer that context.
 		if cwd, err := os.Getwd(); err == nil && cwd != startDir {
