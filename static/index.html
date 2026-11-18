@@ -197,6 +197,10 @@
             <i data-lucide="alert-triangle" class="h-3 w-3"></i>
             <span id="git-warning-text" class="text-[11px] font-medium"></span>
         </div>
+        <button id="commit-mr-btn" onclick="openCommitMR()" class="hidden shrink-0 items-center gap-1.5 rounded-lg border border-cyan-300 bg-cyan-50 px-2 py-0.5 text-[11px] font-semibold text-cyan-700 transition hover:bg-cyan-100 dark:border-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300 dark:hover:bg-cyan-900/50" title="Commit all changes on this branch and open a pull/merge request">
+            <i data-lucide="git-pull-request" class="h-3 w-3"></i>
+            <span>Commit &amp; MR</span>
+        </button>
         <div class="hidden shrink-0 items-center gap-1.5 md:flex">
             <i data-lucide="file-json" class="h-3.5 w-3.5 text-slate-400"></i>
             <span id="context-source" class="max-w-[220px] truncate font-mono text-[11px]"></span>
@@ -348,6 +352,44 @@
             <div class="flex items-center justify-end space-x-3">
                 <button onclick="closeUploadModal()" class="px-4 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-medium transition">Cancel</button>
                 <button onclick="submitJsonText()" class="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-semibold text-sm transition shadow-lg shadow-orange-600/20">Visualize</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Commit & MR Modal -->
+    <div id="commit-mr-modal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 m-4 space-y-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
+                        <i data-lucide="git-pull-request" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg text-slate-900 dark:text-slate-100">Commit &amp; open MR</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Branch <code id="cmr-branch-label" class="font-mono text-cyan-600 dark:text-cyan-400"></code> · target <code id="cmr-base-label" class="font-mono"></code></p>
+                    </div>
+                </div>
+                <button onclick="closeCommitMR()" class="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <textarea id="cmr-message" rows="3" required placeholder="Commit message" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-cyan-500 transition custom-scrollbar"></textarea>
+                <input id="cmr-title" type="text" placeholder="MR title (optional — defaults to the commit message)" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-cyan-500 transition">
+                <div class="flex items-center gap-3">
+                    <input id="cmr-base" type="text" value="main" class="w-28 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:border-cyan-500 transition" title="Target branch">
+                    <label class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 select-none">
+                        <input id="cmr-draft" type="checkbox" class="accent-cyan-600"> Draft
+                    </label>
+                </div>
+            </div>
+
+            <div id="cmr-status" class="hidden rounded-xl px-3 py-2 text-xs font-medium"></div>
+
+            <div class="flex items-center justify-end space-x-3">
+                <button onclick="closeCommitMR()" class="px-4 py-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-medium transition">Cancel</button>
+                <button id="cmr-submit" onclick="submitCommitMR()" class="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm transition shadow-lg shadow-cyan-600/20">Commit &amp; open MR</button>
             </div>
         </div>
     </div>
@@ -791,6 +833,14 @@
                 gitWarning.classList.toggle('hidden', !show);
                 gitWarning.classList.toggle('flex', show);
                 if (gitWarningText) gitWarningText.textContent = parts.join(' · ');
+            }
+
+            const mrBtn = document.getElementById('commit-mr-btn');
+            if (mrBtn) {
+                const canMR = Boolean(branch) && !branch.startsWith('detached')
+                    && branch !== 'main' && branch !== 'master';
+                mrBtn.classList.toggle('hidden', !canMR);
+                mrBtn.classList.toggle('flex', canMR);
             }
 
             if (sourceEl) {
@@ -1549,6 +1599,95 @@
 
         function closeUploadModal() {
             document.getElementById('upload-modal').classList.add('hidden');
+        }
+
+        function openCommitMR() {
+            const data = currentData || {};
+            const branch = data.git_branch || '';
+            const branchLabel = document.getElementById('cmr-branch-label');
+            const baseLabel = document.getElementById('cmr-base-label');
+            if (branchLabel) branchLabel.textContent = branch || '(unknown)';
+            if (baseLabel) baseLabel.textContent = 'main';
+            const msg = document.getElementById('cmr-message');
+            if (msg && !msg.value) {
+                msg.value = 'Update Terraform plan preview (' + (data.source || 'plan') + ')';
+            }
+            setCMRStatus('', '');
+            document.getElementById('commit-mr-modal').classList.remove('hidden');
+            if (msg) msg.focus();
+        }
+
+        function closeCommitMR() {
+            document.getElementById('commit-mr-modal').classList.add('hidden');
+        }
+
+        function setCMRStatus(text, kind) {
+            const el = document.getElementById('cmr-status');
+            if (!el) return;
+            if (!text) {
+                el.classList.add('hidden');
+                el.textContent = '';
+                return;
+            }
+            el.classList.remove('hidden');
+            el.textContent = text;
+            el.className = 'rounded-xl px-3 py-2 text-xs font-medium ' + (
+                kind === 'error'
+                    ? 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800'
+                    : kind === 'ok'
+                        ? 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-800'
+                        : 'bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+            );
+        }
+
+        async function submitCommitMR() {
+            const modal = document.getElementById('commit-mr-modal');
+            const submitBtn = document.getElementById('cmr-submit');
+            const message = (document.getElementById('cmr-message').value || '').trim();
+            if (!message) {
+                setCMRStatus('Commit message is required.', 'error');
+                return;
+            }
+            const payload = {
+                message,
+                title: document.getElementById('cmr-title').value.trim(),
+                body: '',
+                draft: document.getElementById('cmr-draft').checked,
+                base: document.getElementById('cmr-base').value.trim() || 'main'
+            };
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Working…';
+            setCMRStatus('Committing and pushing ' + (currentData && currentData.git_branch || 'branch') + '…', 'info');
+            try {
+                const resp = await fetch('/api/git/commit-mr', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await resp.json().catch(() => ({}));
+                if (data.ok && data.url) {
+                    setCMRStatus('MR opened: ' + data.url, 'ok');
+                    const status = document.getElementById('cmr-status');
+                    const link = document.createElement('a');
+                    link.href = data.url;
+                    link.target = '_blank';
+                    link.rel = 'noopener';
+                    link.className = 'underline font-semibold';
+                    link.textContent = data.url;
+                    status.textContent = 'MR opened: ';
+                    status.appendChild(link);
+                    fetchAndApply('/api/graph');
+                } else {
+                    let msg = data.message || ('HTTP ' + resp.status);
+                    if (data.fallback) msg += ' — manual URL: ' + data.fallback;
+                    setCMRStatus(msg, 'error');
+                }
+            } catch (err) {
+                setCMRStatus('Request failed: ' + err.message, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Commit & open MR';
+            }
         }
     </script>
 </body>

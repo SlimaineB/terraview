@@ -19,6 +19,16 @@ A slim bar below the header shows the git repository root, current branch, and p
 
 When the working tree has uncommitted changes, the branch has unpushed commits, is missing an upstream, or is a detached HEAD, an amber warning chip appears in the same bar. This reflects the repository's current state, not a guarantee about when the plan was generated.
 
+### Commit & MR
+
+On a named feature branch, a **Commit & MR** button opens a dialog that commits the working tree, pushes the branch when needed, and opens a pull request (GitHub) or merge request (GitLab) on the origin remote.
+
+- The commit message is prefilled; the title defaults to its first line.
+- Edit the target branch (default `main`) and tick **Draft** if needed.
+- The action refuses `main`/`master`, detached HEADs, and empty messages, and never force-pushes.
+- Tokens come from `GH_TOKEN`/`GITHUB_TOKEN` or `GITLAB_TOKEN`/`GLAB_TOKEN`, or `git credential fill`. They never leave the server.
+- If the API call fails after the push, the dialog shows a manual compare/new-MR URL.
+
 ## Canvas
 
 - Resources are grouped by deployment level, derived from the dependency graph.

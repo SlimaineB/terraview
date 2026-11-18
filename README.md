@@ -329,6 +329,8 @@ A slim bar below the header shows the git repository root, current branch, and p
 
 When the working tree has uncommitted changes, the branch has unpushed commits, is missing an upstream, or is a detached HEAD, an amber warning chip appears in the same bar. This reflects the repository's current state, not a guarantee about when the plan was generated.
 
+On a named feature branch (not `main`/`master`, not a detached HEAD), a **Commit & MR** button appears in the same bar. It commits the working tree, pushes the branch when needed, and opens a pull request (GitHub) or merge request (GitLab) on the origin remote. The dialog lets you edit the commit message, PR/MR title, target branch, and open it as a draft. The action is refused on foundation branches and never force-pushes. Tokens are read from `GH_TOKEN`/`GITHUB_TOKEN` or `GITLAB_TOKEN`/`GLAB_TOKEN`, falling back to `git credential fill`; they are never written to disk or logs. If the API call fails, the branch stays pushed and the dialog shows a manual compare/new-MR URL.
+
 ### Canvas
 
 - Resources are grouped by deployment level, derived from the dependency graph.
@@ -380,6 +382,7 @@ The server exposes a small JSON API:
 | `GET` | `/api/graph` | Loaded plan, manifest plan via `?plan=<id>`, or the demo when no plan is loaded |
 | `POST` | `/api/graph` | Parse a plan/state JSON body and return the graph (10 MB limit) |
 | `GET` | `/api/demo` | Built-in demo plan |
+| `POST` | `/api/git/commit-mr` | Commit the repository shown in the UI, push the branch, open a PR/MR (`{"message","title","body","draft","base"}`) |
 | `GET` | `/` | Web UI |
 
 Graph responses include `source` plus, when available, `git_path` and `git_branch`. `POST /api/graph` parses the request body without changing the plan loaded at startup.
@@ -389,6 +392,17 @@ Pass `-port 8080` if you need a predictable URL for these examples.
 ```bash
 curl -s http://localhost:8080/api/graph | jq '{source, git_path, git_branch, stats}'
 curl -s -X POST --data-binary @plan.json http://localhost:8080/api/graph > graph.json
+```
+
+`POST /api/git/commit-mr` mirrors the **Commit & MR** button. It requires a Git
+token in the environment (see [Commit and open a PR/MR](#commit-and-open-a-prmr-opt-in)
+for the variables) and refuses to run on `main`/`master` or a detached HEAD:
+
+```bash
+curl -s -X POST http://localhost:8080/api/git/commit-mr \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"Add VPC","title":"Add VPC","base":"main"}'
+# {"ok":true,"url":"https://github.com/acme/infra/pull/42","branch":"feature/vpc",...}
 ```
 
 ---

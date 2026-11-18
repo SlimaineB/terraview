@@ -28,6 +28,7 @@ func New(cfg Config) http.Handler {
 	mux.HandleFunc("/api/plans", handlePlans(store))
 	mux.HandleFunc("/api/graph", handleGraph(cfg, store))
 	mux.HandleFunc("/api/demo", handleDemoGraph(cfg))
+	mux.HandleFunc("/api/git/commit-mr", handleCommitMR(cfg))
 	mux.HandleFunc("/", handleIndex(cfg))
 	return mux
 }

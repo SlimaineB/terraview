@@ -115,15 +115,22 @@ help:
 	@echo "  make docs-serve - preview the built site on port 8099"
 
 # Docs site targets (require Node 22.23.4+)
-NODE := /home/slim/.nvm/versions/node/v22.23.4/bin/node
-NPM  := /home/slim/.nvm/versions/node/v22.23.4/bin/npm
+# Override NODE/NPM to point at a specific toolchain, e.g. a nvm install.
+NODE  ?= node
+NPM   ?= npm
+ASTRO := $(NODE) ./node_modules/.bin/astro
+SYNC  := $(NODE) scripts/sync-docs.mjs
 
 docs:
 	$(NPM) ci
-	$(NPM) run build
+	$(SYNC)
+	$(ASTRO) build
 
 docs-build:
-	$(NPM) run build
+	$(SYNC)
+	$(ASTRO) build
 
 docs-serve:
-	$(NPM) run preview
+	$(SYNC)
+	$(ASTRO) build
+	$(ASTRO) preview --port 8099
