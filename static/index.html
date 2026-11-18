@@ -279,7 +279,7 @@
             <!-- Transform Layer for Zoom / Pan -->
             <div id="dag-transform-layer" class="absolute inset-0 min-w-[2000px] min-h-[2000px] p-16">
                 <!-- SVG Edges Layer -->
-                <svg id="dag-svg" class="absolute inset-0 w-full h-full pointer-events-none z-0"></svg>
+                <svg id="dag-svg" class="pointer-events-none absolute left-0 top-0 z-0" style="overflow: visible"></svg>
                 <!-- HTML Nodes Layer -->
                 <div id="dag-nodes" class="relative z-10 flex space-x-24 items-start"></div>
             </div>
@@ -406,6 +406,7 @@
         let bulkSelected = new Set();
         let bulkMode = 'plan';
         let visibleNodeIds = [];
+        let currentEdges = [];
         let rawOpen = false;
 
         let scale = 1;
@@ -515,6 +516,15 @@
             }
             lucide.createIcons();
             initSidebarResize();
+            const nodesLayer = document.getElementById('dag-nodes');
+            if (window.ResizeObserver && nodesLayer) {
+                new ResizeObserver(redrawEdges).observe(nodesLayer);
+            }
+            window.addEventListener('resize', redrawEdges);
+            window.addEventListener('load', redrawEdges);
+            if (document.fonts && document.fonts.ready) {
+                document.fonts.ready.then(redrawEdges);
+            }
             loadInitialData();
         });
 
@@ -1009,10 +1019,9 @@
                 dagNodesContainer.appendChild(colDiv);
             });
 
-            setTimeout(() => {
-                drawSvgEdges(edges);
-                lucide.createIcons();
-            }, 50);
+            currentEdges = edges;
+            lucide.createIcons();
+            drawSvgEdges(edges);
             updateBulkCommand();
         }
 
@@ -1071,14 +1080,24 @@
             return levels.length > 0 ? levels : [nodes];
         }
 
+        function redrawEdges() {
+            drawSvgEdges(currentEdges);
+        }
+
         function drawSvgEdges(edges) {
             const svg = document.getElementById('dag-svg');
             const canvas = document.getElementById('dag-transform-layer');
             if (!svg || !canvas) return;
 
-            const canvasRect = canvas.getBoundingClientRect();
-            svg.setAttribute('width', canvas.scrollWidth);
-            svg.setAttribute('height', canvas.scrollHeight);
+            const nodesEl = document.getElementById('dag-nodes');
+            const baseX = nodesEl ? nodesEl.offsetLeft : 0;
+            const baseY = nodesEl ? nodesEl.offsetTop : 0;
+            const width = Math.max(canvas.scrollWidth, baseX + (nodesEl ? nodesEl.offsetWidth : 0) + 64);
+            const height = Math.max(canvas.scrollHeight, baseY + (nodesEl ? nodesEl.offsetHeight : 0) + 64);
+            svg.style.width = width + 'px';
+            svg.style.height = height + 'px';
+            svg.setAttribute('width', width);
+            svg.setAttribute('height', height);
             svg.innerHTML = '';
 
             const isDark = document.documentElement.classList.contains('dark');
@@ -1101,13 +1120,12 @@
                 const targetEl = document.querySelector(`[data-id="${e.target}"]`);
                 if (!sourceEl || !targetEl) return;
 
-                const sRect = sourceEl.getBoundingClientRect();
-                const tRect = targetEl.getBoundingClientRect();
-
-                const x1 = (sRect.right - canvasRect.left) / scale;
-                const y1 = (sRect.top + sRect.height / 2 - canvasRect.top) / scale;
-                const x2 = (tRect.left - canvasRect.left) / scale;
-                const y2 = (tRect.top + tRect.height / 2 - canvasRect.top) / scale;
+                // offset* values are layout coordinates, so they are immune to
+                // the pan/zoom transform and to its transition.
+                const x1 = baseX + sourceEl.offsetLeft + sourceEl.offsetWidth;
+                const y1 = baseY + sourceEl.offsetTop + sourceEl.offsetHeight / 2;
+                const x2 = baseX + targetEl.offsetLeft;
+                const y2 = baseY + targetEl.offsetTop + targetEl.offsetHeight / 2;
 
                 const dx = Math.abs(x2 - x1) * 0.5;
                 const pathData = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
