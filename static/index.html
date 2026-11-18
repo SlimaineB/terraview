@@ -1503,8 +1503,8 @@
         function buildCommand(kind, node) {
             const destroyFlag = node.action === 'delete' ? '-destroy ' : '';
             if (atlantisMode) {
-                if (kind === 'plan') return `atlantis plan -- ${destroyFlag}-target=${node.id}`;
-                return `atlantis apply -- ${destroyFlag}-target=${node.id}`;
+                if (kind === 'plan') return `atlantis plan -- ${destroyFlag}-target='${node.id}'`;
+                return `atlantis apply -- ${destroyFlag}-target='${node.id}'`;
             }
             if (kind === 'plan') return `terraform plan ${destroyFlag}-target=${node.id}`;
             if (node.action === 'delete') return `terraform destroy -target=${node.id}`;
@@ -1551,7 +1551,9 @@
         function buildBulkCommand() {
             const targets = [...bulkSelected].sort();
             if (targets.length === 0) return '';
-            const args = targets.map(t => `-target=${t}`).join(' ');
+            const args = atlantisMode
+                ? targets.map(t => `-target='${t}'`).join(' ')
+                : targets.map(t => `-target=${t}`).join(' ');
             if (bulkMode === 'destroy') {
                 return atlantisMode ? `atlantis apply -- -destroy ${args}` : `terraform destroy ${args}`;
             }

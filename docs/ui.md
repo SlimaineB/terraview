@@ -41,7 +41,7 @@ On a named feature branch, a **Commit & MR** button opens a dialog that commits 
 Selecting resources opens a bottom panel with a live command that targets every ticked resource in one shot:
 
 ```bash
-atlantis plan -- -target=aws_vpc.main -target=aws_subnet.public -target=aws_db_instance.postgres
+atlantis plan -- -target='aws_vpc.main' -target='aws_subnet.public' -target='aws_db_instance.postgres'
 ```
 
 - Switch between `plan`, `apply`, and `destroy`, and between `terraform`/`atlantis` with the header toggle.
@@ -61,8 +61,8 @@ The right panel is resizable (drag its edge, double-click to reset) and shows:
 Atlantis examples:
 
 ```bash
-atlantis plan -- -target=aws_vpc.main
-atlantis plan -- -destroy -target=aws_s3_bucket.legacy_bucket
+atlantis plan -- -target='aws_vpc.main'
+atlantis plan -- -destroy -target='aws_s3_bucket.legacy_bucket'
 atlantis apply
 ```
 

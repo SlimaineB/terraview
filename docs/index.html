@@ -541,7 +541,7 @@
                 <div class="dep"><span class="up">↑</span> aws_vpc.main</div>
                 <div class="dep"><span class="down">↓</span> aws_eks_cluster.app</div>
                 <div class="mock-kicker">Targeted command</div>
-                <div class="cmd-box">atlantis plan -- -target=aws_subnet.private</div>
+                <div class="cmd-box">atlantis plan -- -target='aws_subnet.private'</div>
               </aside>
             </div>
           </div>
@@ -678,7 +678,7 @@
               </div>
             </div>
             <div class="example-note">
-              <strong>TerraView sees the chain.</strong> Click <code>aws_subnet.private</code> to inspect the CIDR diff and copy <code>atlantis plan -- -target=aws_subnet.private</code>.
+              <strong>TerraView sees the chain.</strong> Click <code>aws_subnet.private</code> to inspect the CIDR diff and copy <code>atlantis plan -- -target='aws_subnet.private'</code>.
             </div>
           </div>
         </div>
