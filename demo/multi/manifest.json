@@ -1,0 +1,9 @@
+{
+  "plans": [
+    {"project": "network", "env": "prod", "file": "network-prod.json"},
+    {"project": "compute", "env": "prod", "file": "compute-prod.json"},
+    {"project": "data", "env": "prod", "file": "data-prod.json"},
+    {"project": "edge", "env": "staging", "workspace": "canary", "file": "edge-staging-canary.json"},
+    {"project": "edge", "env": "prod", "workspace": "eu-west-1", "file": "edge-prod-eu-west-1.json"}
+  ]
+}

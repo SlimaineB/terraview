@@ -24,7 +24,7 @@ BASE_CHECK_ARGS = $(if $(BASE_BRANCH),--base "$(BASE_BRANCH)",) $(if $(filter 1,
 
 export TF_WORKSPACE
 
-.PHONY: all build test vet fmt lint static image run plan ui manifest pr clean help docs docs-build docs-serve
+.PHONY: all build test vet fmt lint static image run plan ui manifest demo-multi pr clean help docs docs-build docs-serve
 
 all: build test vet
 
@@ -67,6 +67,10 @@ ui:
 manifest:
 	$(GO) run . -manifest "$(MANIFEST)" -open
 
+# Open the bundled multi-project/workspace demo (no Terraform needed)
+demo-multi:
+	$(GO) run . -manifest demo/multi/manifest.json -open
+
 # Commit current changes on a branch and open a PR/MR (disabled by default).
 # Usage: TERRAVIEW_ALLOW_PR=1 make pr MSG="Add feature" [TITLE="Add feature"]
 pr:
@@ -101,6 +105,7 @@ help:
 	@echo "  make plan      - terraform plan in TF_DIR (checks the base branch first), export PLAN_JSON, open the UI"
 	@echo "  make ui        - open PLAN_JSON in the UI"
 	@echo "  make manifest  - open all plans from MANIFEST in the multi-plan UI"
+	@echo "  make demo-multi - open the bundled multi-project/workspace demo"
 	@echo "  make pr        - commit + open a PR/MR (checks the base branch; requires TERRAVIEW_ALLOW_PR=1)"
 	@echo "  make static    - build binary + export terraview-report.html from plan.json"
 	@echo "  make image     - docker build -t $(IMAGE):$(IMAGE_TAG)"

@@ -65,6 +65,8 @@ terraview -manifest plans.json -open
 - The selection is exposed as `?plan=<id>`.
 - `-manifest` is UI-only; use `-in` or `-static` for a single report.
 
+A bundled example lives in `demo/multi/`: run `make demo-multi` (or `terraview -manifest demo/multi/manifest.json -open`) to try five plans across projects, environments, and workspaces without Terraform.
+
 Generate one plan per stack/env/workspace:
 
 ```bash

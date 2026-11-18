@@ -1,0 +1,64 @@
+{
+  "format_version": "1.1",
+  "terraform_version": "1.6.6",
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.assets",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "assets",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["no-op"],
+        "before": {"bucket": "edge-prod-eu-west-1-assets", "force_destroy": false},
+        "after": {"bucket": "edge-prod-eu-west-1-assets", "force_destroy": false}
+      }
+    },
+    {
+      "address": "aws_s3_bucket_policy.assets",
+      "mode": "managed",
+      "type": "aws_s3_bucket_policy",
+      "name": "assets",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["no-op"],
+        "before": {"bucket": "edge-prod-eu-west-1-assets"},
+        "after": {"bucket": "edge-prod-eu-west-1-assets"}
+      }
+    },
+    {
+      "address": "aws_cloudfront_distribution.edge",
+      "mode": "managed",
+      "type": "aws_cloudfront_distribution",
+      "name": "edge",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["no-op"],
+        "before": {"comment": "edge-prod-eu-west-1", "enabled": true, "price_class": "PriceClass_100"},
+        "after": {"comment": "edge-prod-eu-west-1", "enabled": true, "price_class": "PriceClass_100"}
+      }
+    },
+    {
+      "address": "cloudflare_record.edge",
+      "mode": "managed",
+      "type": "cloudflare_record",
+      "name": "edge",
+      "provider_name": "registry.terraform.io/cloudflare/cloudflare",
+      "change": {
+        "actions": ["no-op"],
+        "before": {"zone_id": "example.com", "name": "www", "type": "CNAME"},
+        "after": {"zone_id": "example.com", "name": "www", "type": "CNAME"}
+      }
+    }
+  ],
+  "configuration": {
+    "root_module": {
+      "resources": [
+        {"address": "aws_s3_bucket.assets", "expressions": {}},
+        {"address": "aws_s3_bucket_policy.assets", "expressions": {"bucket": {"references": ["aws_s3_bucket.assets"]}}},
+        {"address": "aws_cloudfront_distribution.edge", "expressions": {"origin": {"references": ["aws_s3_bucket.assets"]}}},
+        {"address": "cloudflare_record.edge", "expressions": {"zone_id": {"references": ["aws_cloudfront_distribution.edge"]}}}
+      ]
+    }
+  }
+}

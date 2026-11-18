@@ -127,6 +127,18 @@ go run .           # from source
 
 Open the URL printed by TerraView. When no plan is provided, the embedded demo loads automatically (15 resources, create/update/no-op/delete actions).
 
+### Multi-plan demo
+
+A bundled manifest shows five plans across projects, environments, and workspaces:
+
+```bash
+make demo-multi
+# or
+terraview -manifest demo/multi/manifest.json -open
+```
+
+The plan switcher renders each one with its own dot and counts: `network / prod` (creates only), `compute / prod` (updates), `data / prod` (replacements), `edge / staging / canary` (destroys), and `edge / prod / eu-west-1` (no changes) — green, amber, orange, red, and gray.
+
 ### Multiple instances
 
 Give each project or branch its own port and label:
@@ -527,7 +539,8 @@ terraview/
 │   ├── check-base.sh          # Cheap base-branch freshness check (no fetch by default)
 │   └── open-pr.sh             # Opt-in commit + PR/MR helper (disabled by default)
 ├── demo/
-│   └── demo-plan.json         # Embedded demo plan (served by /api/demo)
+│   ├── demo-plan.json         # Embedded demo plan (served by /api/demo)
+│   └── multi/                 # Multi-project/workspace demo manifest and plans
 ├── docs/                      # Markdown docs source (synced to src/content/docs/ for Astro)
 ├── static/
 │   └── index.html             # Single-file frontend (embedded; on-disk copy wins in dev)

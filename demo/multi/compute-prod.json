@@ -1,0 +1,90 @@
+{
+  "format_version": "1.1",
+  "terraform_version": "1.6.6",
+  "resource_changes": [
+    {
+      "address": "aws_vpc.main",
+      "mode": "managed",
+      "type": "aws_vpc",
+      "name": "main",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["no-op"],
+        "before": {"cidr_block": "10.20.0.0/16", "tags": {"Name": "network-prod"}},
+        "after": {"cidr_block": "10.20.0.0/16", "tags": {"Name": "network-prod"}}
+      }
+    },
+    {
+      "address": "aws_subnet.app",
+      "mode": "managed",
+      "type": "aws_subnet",
+      "name": "app",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["no-op"],
+        "before": {"cidr_block": "10.20.10.0/24", "availability_zone": "eu-west-1a"},
+        "after": {"cidr_block": "10.20.10.0/24", "availability_zone": "eu-west-1a"}
+      }
+    },
+    {
+      "address": "aws_security_group.app",
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "app",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {"name": "compute-prod-app", "ingress_ports": [80]},
+        "after": {"name": "compute-prod-app", "ingress_ports": [80, 443]}
+      }
+    },
+    {
+      "address": "aws_launch_template.app",
+      "mode": "managed",
+      "type": "aws_launch_template",
+      "name": "app",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {"name": "compute-prod-app", "instance_type": "t3.small"},
+        "after": {"name": "compute-prod-app", "instance_type": "t3.medium"}
+      }
+    },
+    {
+      "address": "aws_autoscaling_group.app",
+      "mode": "managed",
+      "type": "aws_autoscaling_group",
+      "name": "app",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {"min_size": 2, "max_size": 4, "desired_capacity": 2},
+        "after": {"min_size": 2, "max_size": 8, "desired_capacity": 4}
+      }
+    },
+    {
+      "address": "aws_autoscaling_policy.cpu",
+      "mode": "managed",
+      "type": "aws_autoscaling_policy",
+      "name": "cpu",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {"name": "compute-prod-cpu", "target_value": 60},
+        "after": {"name": "compute-prod-cpu", "target_value": 50}
+      }
+    }
+  ],
+  "configuration": {
+    "root_module": {
+      "resources": [
+        {"address": "aws_vpc.main", "expressions": {}},
+        {"address": "aws_subnet.app", "expressions": {"vpc_id": {"references": ["aws_vpc.main"]}}},
+        {"address": "aws_security_group.app", "expressions": {"vpc_id": {"references": ["aws_vpc.main"]}}},
+        {"address": "aws_launch_template.app", "expressions": {"vpc_security_group_ids": {"references": ["aws_security_group.app"]}}},
+        {"address": "aws_autoscaling_group.app", "expressions": {"launch_template": {"references": ["aws_launch_template.app"]}, "vpc_zone_identifier": {"references": ["aws_subnet.app"]}}},
+        {"address": "aws_autoscaling_policy.cpu", "expressions": {"autoscaling_group_name": {"references": ["aws_autoscaling_group.app"]}}}
+      ]
+    }
+  }
+}
