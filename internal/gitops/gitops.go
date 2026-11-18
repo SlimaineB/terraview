@@ -160,7 +160,14 @@ func CommitAll(dir, message string) (bool, error) {
 	if _, err := runGit(dir, "add", "-A"); err != nil {
 		return false, err
 	}
-	out, err := runGit(dir, "commit", "-m", message)
+	out, err := runGit(dir, "status", "--porcelain")
+	if err != nil {
+		return false, err
+	}
+	if strings.TrimSpace(out) == "" {
+		return false, nil
+	}
+	out, err = runGit(dir, "commit", "-m", message)
 	if err != nil {
 		if strings.Contains(out, "nothing to commit") {
 			return false, nil

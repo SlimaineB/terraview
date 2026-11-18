@@ -195,6 +195,8 @@ func initRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	git(t, dir, nil, "init", "-b", "main")
+	git(t, dir, nil, "config", "user.name", "Test")
+	git(t, dir, nil, "config", "user.email", "test@example.com")
 	git(t, dir, nil, "commit", "--allow-empty", "-m", "init")
 	return dir
 }
