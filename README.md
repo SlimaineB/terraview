@@ -63,15 +63,15 @@ Each platform gets a `.tar.gz`/`.zip` archive and a raw binary. A `checksums.txt
 
 ```bash
 # Linux amd64 (no GitHub CLI needed)
-VERSION=v0.2.0
+VERSION=v0.3.0
 mkdir -p bin
 curl -sSL -o bin/terraview.tar.gz \
-  "https://github.com/SlimaineB/terraview/releases/download/${VERSION}/terraview-0.2.0-linux-amd64.tar.gz"
+  "https://github.com/SlimaineB/terraview/releases/download/${VERSION}/terraview-0.3.0-linux-amd64.tar.gz"
 tar -xzf bin/terraview.tar.gz -C bin
 ./bin/terraview -version
 ```
 
-Other assets follow the same pattern: `terraview-0.2.0-linux-arm64.tar.gz`, `terraview-0.2.0-darwin-arm64.tar.gz`, `terraview-0.2.0-windows-amd64.zip`. Verify downloads with `checksums.txt` from the same release.
+Other assets follow the same pattern: `terraview-0.3.0-linux-arm64.tar.gz`, `terraview-0.3.0-darwin-arm64.tar.gz`, `terraview-0.3.0-windows-amd64.zip`. Verify downloads with `checksums.txt` from the same release.
 
 On Windows, download the `.zip` and extract it with `Expand-Archive`.
 
@@ -157,7 +157,8 @@ terraview -manifest plans.json -open
 - `file` is required and resolved relative to the manifest file.
 - `id` defaults to `project/env/workspace`; set it explicitly to customise the URL key.
 - `label` overrides the display label.
-- The UI groups plans by `project` and exposes the selection as `?plan=<id>`.
+- The plan switcher lists every plan with a colored dot and its action counts (`2 add · 1 mod`, `1 del`, …), so you can see which projects the branch impacts without opening each one. Colors: red = destroy, orange = replace, amber = update, green = create, gray = no changes.
+- The selection is exposed as `?plan=<id>`.
 - `-manifest` is UI-only; use `-in` or `-static` for a single report.
 
 Generate one plan per stack/env/workspace:
@@ -378,7 +379,7 @@ The server exposes a small JSON API:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/plans` | Plans declared in `-manifest` (empty without a manifest) |
+| `GET` | `/api/plans` | Plans declared in `-manifest` with per-plan action counts (empty without a manifest) |
 | `GET` | `/api/graph` | Loaded plan, manifest plan via `?plan=<id>`, or the demo when no plan is loaded |
 | `POST` | `/api/graph` | Parse a plan/state JSON body and return the graph (10 MB limit) |
 | `GET` | `/api/demo` | Built-in demo plan |
@@ -554,7 +555,7 @@ During development, an on-disk `static/index.html` takes precedence over the emb
 |----------|---------|-------------|
 | `ci.yml` | push / PR to `main` or `master`, manual | gofmt check, inline HTML script validation, `go vet`, `go test`, build, upload `terraview-linux-amd64` artifact |
 | `release.yml` | tag `v*`, manual | test, build `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`, `windows/amd64`, publish GitHub Release and multi-arch GHCR image |
-| `pages.yml` | push to `main` changing `docs/**` or the workflow, manual | deploy `docs/` to GitHub Pages |
+| `pages.yml` | push to `main` changing `src/**`, `docs/**`, the site config, or the workflow, manual | build the Astro site and deploy it to GitHub Pages |
 
 On a tag, the release contains:
 

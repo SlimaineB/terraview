@@ -231,6 +231,9 @@ func TestHandlePlansListsManifestEntries(t *testing.T) {
 	if got.Plans[1].Project != "compute" || got.Plans[1].Source != "plans/compute-prod.json" {
 		t.Errorf("second plan = %+v, want compute plan metadata", got.Plans[1])
 	}
+	if got.Plans[0].Stats == nil || got.Plans[0].Stats.TotalResources != 1 || got.Plans[0].Stats.Actions["create"] != 1 {
+		t.Errorf("first plan stats = %+v, want 1 resource with 1 create", got.Plans[0].Stats)
+	}
 }
 
 func TestHandleGraphSelectsManifestPlan(t *testing.T) {

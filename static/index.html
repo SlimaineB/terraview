@@ -162,6 +162,12 @@
         </div>
 
         <div class="flex items-center space-x-2">
+            <a href="https://slimaineb.github.io/terraview/" target="_blank" rel="noopener" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition" title="Documentation">
+                <i data-lucide="book-open" class="w-4 h-4"></i>
+            </a>
+            <a href="https://github.com/SlimaineB/terraview" target="_blank" rel="noopener" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition" title="GitHub repository">
+                <svg viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            </a>
             <!-- Theme Toggle Button -->
             <button onclick="toggleTheme()" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition" title="Toggle Theme">
                 <i id="theme-icon" data-lucide="sun" class="w-4 h-4"></i>
@@ -178,11 +184,16 @@
     </header>
 
     <!-- Repository context bar -->
-    <div id="repo-context" class="hidden h-9 shrink-0 items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-4 text-xs text-slate-500 backdrop-blur dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400 sm:px-6">
-        <div id="plan-switcher" class="hidden shrink-0 items-center gap-2 border-r border-slate-200 pr-3 dark:border-slate-700">
+    <div id="repo-context" class="relative z-40 hidden h-9 shrink-0 items-center gap-3 border-b border-slate-200 bg-slate-50/80 px-4 text-xs text-slate-500 backdrop-blur dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400 sm:px-6">
+        <div id="plan-switcher" class="relative hidden shrink-0 items-center gap-2 border-r border-slate-200 pr-3 dark:border-slate-700">
             <i data-lucide="layers" class="h-3.5 w-3.5 shrink-0 text-indigo-600 dark:text-indigo-400"></i>
             <span class="hidden shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 sm:inline">Plan</span>
-            <select id="plan-select" onchange="selectPlan(this.value)" class="max-w-[260px] rounded-lg border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] text-slate-700 focus:border-cyan-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"></select>
+            <button id="plan-trigger" type="button" onclick="togglePlanMenu()" aria-haspopup="listbox" aria-expanded="false" class="flex max-w-[280px] items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-mono text-slate-700 transition hover:border-cyan-400 focus:border-cyan-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200" title="Select a plan">
+                <span id="plan-trigger-dot" class="h-2 w-2 shrink-0 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                <span id="plan-trigger-label" class="truncate">Select a plan</span>
+                <i data-lucide="chevron-down" class="h-3 w-3 shrink-0 text-slate-400"></i>
+            </button>
+            <div id="plan-menu" role="listbox" class="absolute left-0 top-full z-50 mt-1 hidden max-h-[70vh] w-[340px] overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-2xl custom-scrollbar dark:border-slate-700 dark:bg-slate-900"></div>
         </div>
         <div class="flex min-w-0 flex-1 items-center gap-2">
             <i data-lucide="folder" class="h-3.5 w-3.5 shrink-0 text-cyan-600 dark:text-cyan-400"></i>
@@ -283,6 +294,10 @@
                 <!-- HTML Nodes Layer -->
                 <div id="dag-nodes" class="relative z-10 flex space-x-24 items-start"></div>
             </div>
+
+            <a href="https://github.com/SlimaineB/terraview" target="_blank" rel="noopener" class="absolute bottom-6 right-6 z-30 text-[10px] font-medium text-slate-400 transition hover:text-cyan-600 dark:text-slate-500 dark:hover:text-cyan-400" title="TerraView — created by SlimaineB">
+                © 2026 SlimaineB · TerraView
+            </a>
         </div>
 
         <!-- Sidebar Resize Handle -->
@@ -520,6 +535,13 @@
             if (window.ResizeObserver && nodesLayer) {
                 new ResizeObserver(redrawEdges).observe(nodesLayer);
             }
+            document.addEventListener('click', (e) => {
+                const switcher = document.getElementById('plan-switcher');
+                if (switcher && !switcher.contains(e.target)) closePlanMenu();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closePlanMenu();
+            });
             window.addEventListener('resize', redrawEdges);
             window.addEventListener('load', redrawEdges);
             if (document.fonts && document.fonts.ready) {
@@ -638,7 +660,7 @@
         }
 
         function startPan(e) {
-            if (e.target.closest('.node-card') || e.target.closest('button') || e.target.closest('input')) return;
+            if (e.target.closest('.node-card') || e.target.closest('button') || e.target.closest('input') || e.target.closest('a')) return;
             isPanning = true;
             startX = e.clientX - panX;
             startY = e.clientY - panY;
@@ -720,50 +742,124 @@
                 if (!res.ok) return;
                 const payload = await res.json();
                 planOptions = Array.isArray(payload.plans) ? payload.plans : [];
-                renderPlanOptions();
+                renderPlanMenu();
             } catch (err) {
                 console.error('Error loading plans:', err);
             }
         }
 
-        function renderPlanOptions() {
-            const select = document.getElementById('plan-select');
-            if (!select) return;
-            select.replaceChildren();
+        const PLAN_TONES = {
+            delete: { dot: 'bg-red-500', text: 'text-red-600 dark:text-red-400' },
+            replace: { dot: 'bg-orange-500', text: 'text-orange-600 dark:text-orange-400' },
+            update: { dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' },
+            create: { dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
+            none: { dot: 'bg-slate-300 dark:bg-slate-600', text: 'text-slate-500 dark:text-slate-400' }
+        };
 
-            const groups = new Map();
-            for (const plan of planOptions) {
-                const option = document.createElement('option');
-                option.value = plan.id;
-                option.textContent = plan.label || plan.id;
-                option.title = plan.label || plan.id;
+        function planCounts(plan) {
+            const actions = (plan && plan.stats && plan.stats.actions) || {};
+            return {
+                create: actions.create || 0,
+                update: actions.update || 0,
+                replace: actions.replace || 0,
+                delete: actions.delete || 0,
+                total: (plan && plan.stats && plan.stats.total_resources) || 0
+            };
+        }
 
-                if (plan.project) {
-                    let group = groups.get(plan.project);
-                    if (!group) {
-                        group = document.createElement('optgroup');
-                        group.label = plan.project;
-                        groups.set(plan.project, group);
-                        select.appendChild(group);
-                    }
-                    group.appendChild(option);
-                } else {
-                    select.appendChild(option);
-                }
+        function planTone(counts) {
+            if (counts.delete > 0) return PLAN_TONES.delete;
+            if (counts.replace > 0) return PLAN_TONES.replace;
+            if (counts.update > 0) return PLAN_TONES.update;
+            if (counts.create > 0) return PLAN_TONES.create;
+            return PLAN_TONES.none;
+        }
+
+        function planCountsLabel(counts) {
+            const parts = [];
+            if (counts.create) parts.push(counts.create + ' add');
+            if (counts.update) parts.push(counts.update + ' mod');
+            if (counts.replace) parts.push(counts.replace + ' repl');
+            if (counts.delete) parts.push(counts.delete + ' del');
+            if (!parts.length) return counts.total ? 'No changes' : 'No data';
+            return parts.join(' · ');
+        }
+
+        function updatePlanTrigger() {
+            const dot = document.getElementById('plan-trigger-dot');
+            const label = document.getElementById('plan-trigger-label');
+            const trigger = document.getElementById('plan-trigger');
+            if (!dot || !label) return;
+            const id = currentData && currentData.plan_id;
+            const plan = planOptions.find(p => p.id === id);
+            if (!plan) {
+                label.textContent = planOptions.length ? 'Select a plan' : 'No plans';
+                dot.className = 'h-2 w-2 shrink-0 rounded-full bg-slate-300 dark:bg-slate-600';
+                if (trigger) trigger.title = label.textContent;
+                return;
             }
+            const counts = planCounts(plan);
+            dot.className = 'h-2 w-2 shrink-0 rounded-full ' + planTone(counts).dot;
+            label.textContent = plan.label || plan.id;
+            if (trigger) trigger.title = (plan.label || plan.id) + ' — ' + planCountsLabel(counts);
+        }
+
+        function renderPlanMenu() {
+            const menu = document.getElementById('plan-menu');
+            if (!menu) return;
+            menu.replaceChildren();
+
+            const selectedId = currentData && currentData.plan_id;
+            for (const plan of planOptions) {
+                const counts = planCounts(plan);
+                const tone = planTone(counts);
+                const selected = plan.id === selectedId;
+                const label = plan.label || plan.id;
+
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.setAttribute('role', 'option');
+                row.setAttribute('aria-selected', selected ? 'true' : 'false');
+                row.className = 'flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left transition ' +
+                    (selected ? 'bg-cyan-50 dark:bg-cyan-950/30' : 'hover:bg-slate-100 dark:hover:bg-slate-800');
+                row.onclick = () => selectPlan(plan.id);
+                row.innerHTML = `
+                    <span class="mt-1 h-2 w-2 shrink-0 rounded-full ${tone.dot}"></span>
+                    <span class="min-w-0 flex-1">
+                        <span class="block truncate font-mono text-[11px] font-medium text-slate-700 dark:text-slate-200">${escapeHtml(label)}</span>
+                        <span class="mt-0.5 block text-[10px] ${tone.text}">${escapeHtml(planCountsLabel(counts))}</span>
+                    </span>
+                `;
+                menu.appendChild(row);
+            }
+            updatePlanTrigger();
             renderRepoContext(currentData);
+        }
+
+        function togglePlanMenu(force) {
+            const menu = document.getElementById('plan-menu');
+            const trigger = document.getElementById('plan-trigger');
+            if (!menu) return;
+            const open = typeof force === 'boolean' ? force : menu.classList.contains('hidden');
+            menu.classList.toggle('hidden', !open);
+            if (trigger) trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+            if (open) renderPlanMenu();
+        }
+
+        function closePlanMenu() {
+            togglePlanMenu(false);
         }
 
         async function selectPlan(id) {
             if (!id) return false;
+            closePlanMenu();
             const loaded = await fetchAndApply('/api/graph?plan=' + encodeURIComponent(id));
             if (!loaded) return false;
 
-            const select = document.getElementById('plan-select');
-            if (select) select.value = id;
             const url = new URL(window.location.href);
             url.searchParams.set('plan', id);
             window.history.replaceState(null, '', url);
+            renderPlanMenu();
             return true;
         }
 
@@ -871,19 +967,14 @@
                 ? `TerraView — ${label}${branch}`
                 : 'TerraView — Terraform DAG & Plan Diff Visualizer';
 
-            const select = document.getElementById('plan-select');
-            if (select) {
-                if (data.plan_id) {
-                    select.value = data.plan_id;
-                } else {
-                    select.selectedIndex = -1;
-                    const url = new URL(window.location.href);
-                    if (url.searchParams.has('plan')) {
-                        url.searchParams.delete('plan');
-                        window.history.replaceState(null, '', url);
-                    }
+            if (!data.plan_id) {
+                const url = new URL(window.location.href);
+                if (url.searchParams.has('plan')) {
+                    url.searchParams.delete('plan');
+                    window.history.replaceState(null, '', url);
                 }
             }
+            updatePlanTrigger();
 
             renderRepoContext(data);
             clearSelection();

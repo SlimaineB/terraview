@@ -16,12 +16,13 @@ import (
 var errUnknownPlan = errors.New("unknown plan")
 
 type planInfo struct {
-	ID        string `json:"id"`
-	Label     string `json:"label"`
-	Project   string `json:"project,omitempty"`
-	Env       string `json:"env,omitempty"`
-	Workspace string `json:"workspace,omitempty"`
-	Source    string `json:"source,omitempty"`
+	ID        string       `json:"id"`
+	Label     string       `json:"label"`
+	Project   string       `json:"project,omitempty"`
+	Env       string       `json:"env,omitempty"`
+	Workspace string       `json:"workspace,omitempty"`
+	Source    string       `json:"source,omitempty"`
+	Stats     *graph.Stats `json:"stats,omitempty"`
 }
 
 type plansResponse struct {
@@ -63,14 +64,19 @@ func (s *planStore) hasPlans() bool {
 func (s *planStore) list() []planInfo {
 	infos := make([]planInfo, 0, len(s.plans))
 	for _, plan := range s.plans {
-		infos = append(infos, planInfo{
+		info := planInfo{
 			ID:        plan.ID,
 			Label:     plan.DisplayLabel(),
 			Project:   plan.Project,
 			Env:       plan.Env,
 			Workspace: plan.Workspace,
 			Source:    plan.Source,
-		})
+		}
+		if data, err := s.get(plan.ID); err == nil && data != nil {
+			stats := data.Stats
+			info.Stats = &stats
+		}
+		infos = append(infos, info)
 	}
 	return infos
 }

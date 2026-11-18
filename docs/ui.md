@@ -12,12 +12,19 @@ title: UI guide
 - **Theme toggle** — light or dark
 - **Import Plan JSON** — paste `terraform show -json` output
 - **Raw JSON** — open the full plan JSON in a bottom panel
+- **Docs / GitHub icons** — open the documentation site and the source repository
 
 ## Repository context
 
 A slim bar below the header shows the git repository root, current branch, and plan source (file name, `stdin`, uploaded plan, or demo) whenever that context is available. Long paths are truncated visually and shown in full on hover.
 
 When the working tree has uncommitted changes, the branch has unpushed commits, is missing an upstream, or is a detached HEAD, an amber warning chip appears in the same bar. This reflects the repository's current state, not a guarantee about when the plan was generated.
+
+### Plan switcher (manifest)
+
+With `-manifest`, the plan name in the repository bar becomes a dropdown. Each row shows the plan label, a status dot, and its action counts (`2 add · 1 mod`, `1 del`, `No changes`), so you can spot which projects the branch impacts without opening each plan.
+
+The dot reflects the most severe action: red for any destroy, orange for replace, amber for update, green for create only, gray when nothing changes. Selecting a row loads the plan and updates `?plan=<id>`.
 
 ### Commit & MR
 

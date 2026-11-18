@@ -61,7 +61,8 @@ terraview -manifest plans.json -open
 - `file` is required and resolved relative to the manifest file.
 - `id` defaults to `project/env/workspace`; set it explicitly to customise the URL key.
 - `label` overrides the display label.
-- The UI groups plans by `project` and exposes the selection as `?plan=<id>`.
+- The plan switcher lists every plan with a colored dot and its action counts (`2 add · 1 mod`, `1 del`, …), so you can see which projects the branch impacts without opening each one. Colors: red = destroy, orange = replace, amber = update, green = create, gray = no changes.
+- The selection is exposed as `?plan=<id>`.
 - `-manifest` is UI-only; use `-in` or `-static` for a single report.
 
 Generate one plan per stack/env/workspace:
