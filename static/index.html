@@ -1100,6 +1100,15 @@
             svg.setAttribute('height', height);
             svg.innerHTML = '';
 
+            // Terraform addresses can contain quotes (for_each keys such as
+            // aws_instance.web["admin"]), which break attribute selectors like
+            // [data-id="..."] and make querySelector throw. Look cards up by
+            // their raw data-id value instead.
+            const cardsById = new Map();
+            document.querySelectorAll('#dag-nodes .node-card').forEach(el => {
+                cardsById.set(el.getAttribute('data-id'), el);
+            });
+
             const isDark = document.documentElement.classList.contains('dark');
             const strokeColor = isDark ? 'rgba(100, 116, 139, 0.4)' : 'rgba(148, 163, 184, 0.6)';
             const arrowFill = isDark ? 'rgba(100, 116, 139, 0.7)' : 'rgba(148, 163, 184, 0.9)';
@@ -1116,8 +1125,8 @@
             svg.appendChild(defs);
 
             edges.forEach(e => {
-                const sourceEl = document.querySelector(`[data-id="${e.source}"]`);
-                const targetEl = document.querySelector(`[data-id="${e.target}"]`);
+                const sourceEl = cardsById.get(e.source);
+                const targetEl = cardsById.get(e.target);
                 if (!sourceEl || !targetEl) return;
 
                 // offset* values are layout coordinates, so they are immune to
@@ -1441,23 +1450,6 @@
             return String(text).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
         }
 
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                const btn = document.querySelector(`button[onclick*="${escapeJs(text)}"]`);
-                if (btn) {
-                    const original = btn.innerHTML;
-                    btn.innerHTML = `<i data-lucide="check" class="w-3 h-3 text-emerald-600"></i>`;
-                    btn.classList.add('bg-emerald-100', 'text-emerald-700');
-                    setTimeout(() => {
-                        btn.innerHTML = original;
-                        btn.classList.remove('bg-emerald-100', 'text-emerald-700');
-                        lucide.createIcons();
-                    }, 1200);
-                }
-                lucide.createIcons();
-            });
-        }
-
         function copyAction(text, btn) {
             navigator.clipboard.writeText(text).then(() => {
                 if (!btn) return;
@@ -1471,10 +1463,6 @@
                 }, 1200);
                 lucide.createIcons();
             });
-        }
-
-        function escapeJs(text) {
-            return String(text).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         }
 
         function clearSelection() {
