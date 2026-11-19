@@ -68,15 +68,20 @@ func Parse(data []byte) (*Data, error) {
 			}
 		}
 
-		if config, ok := raw["configuration"].(map[string]interface{}); ok {
-			if rootMod, ok := config["root_module"].(map[string]interface{}); ok {
-				hasDependencyData = true
-				parseModuleDependencies(rootMod, "", nodesMap, &edges, seenEdges)
-			}
+		if parseConfigurationDependencies(raw, nodesMap, &edges, seenEdges) {
+			hasDependencyData = true
 		}
 	} else if _, ok := raw["values"].(map[string]interface{}); ok {
 		hasDependencyData = true
 		parseStateJSON(raw, nodesMap, &edges, actionsCount, providersCount, seenEdges)
+	} else if planned, ok := raw["planned_values"].(map[string]interface{}); ok {
+		if rootMod, ok := planned["root_module"].(map[string]interface{}); ok {
+			parseStateModule(rootMod, nodesMap, &edges, actionsCount, providersCount, seenEdges)
+		}
+		if parseConfigurationDependencies(raw, nodesMap, &edges, seenEdges) {
+			hasDependencyData = true
+		}
+	} else if raw["format_version"] != nil || raw["terraform_version"] != nil {
 	} else {
 		return nil, fmt.Errorf("unrecognized terraform JSON format")
 	}
@@ -129,6 +134,19 @@ func normalizeAction(actions []interface{}) string {
 		return "replace"
 	}
 	return values[0]
+}
+
+func parseConfigurationDependencies(raw map[string]interface{}, nodesMap map[string]Node, edges *[]Edge, seen map[string]bool) bool {
+	config, ok := raw["configuration"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	rootMod, ok := config["root_module"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	parseModuleDependencies(rootMod, "", nodesMap, edges, seen)
+	return true
 }
 
 func parseModuleDependencies(mod map[string]interface{}, prefix string, nodesMap map[string]Node, edges *[]Edge, seen map[string]bool) {

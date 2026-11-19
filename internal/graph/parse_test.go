@@ -283,3 +283,48 @@ func TestParseReplaceActions(t *testing.T) {
 		t.Errorf("create/delete actions = %d/%d, want 0/0", g.Stats.Actions["create"], g.Stats.Actions["delete"])
 	}
 }
+
+func TestParsePlanWithoutResourceChanges(t *testing.T) {
+	g := parseTestPlan(t, `{
+		"format_version": "1.1",
+		"terraform_version": "1.6.6",
+		"planned_values": {
+			"root_module": {
+				"resources": [
+					{"address": "aws_vpc.main", "mode": "managed", "type": "aws_vpc", "name": "main", "provider_name": "registry.terraform.io/hashicorp/aws", "values": {}},
+					{"address": "aws_subnet.private", "mode": "managed", "type": "aws_subnet", "name": "private", "provider_name": "registry.terraform.io/hashicorp/aws", "values": {}}
+				]
+			}
+		},
+		"configuration": {
+			"root_module": {
+				"resources": [
+					{"address": "aws_vpc.main", "expressions": {}},
+					{"address": "aws_subnet.private", "expressions": {"vpc_id": {"references": ["aws_vpc.main"]}}}
+				]
+			}
+		}
+	}`)
+
+	if len(g.Nodes) != 2 {
+		t.Fatalf("nodes = %d, want 2", len(g.Nodes))
+	}
+	for _, node := range g.Nodes {
+		if node.Action != "no-op" {
+			t.Errorf("node %s action = %q, want no-op", node.ID, node.Action)
+		}
+	}
+	if g.Stats.Actions["no-op"] != 2 {
+		t.Errorf("no-op actions = %d, want 2", g.Stats.Actions["no-op"])
+	}
+	if ids := edgeIDs(g); !ids["aws_vpc.main->aws_subnet.private"] {
+		t.Errorf("missing edge aws_vpc.main->aws_subnet.private (%v)", ids)
+	}
+}
+
+func TestParseEmptyPlan(t *testing.T) {
+	g := parseTestPlan(t, `{"format_version": "1.1", "terraform_version": "1.6.6", "planned_values": {"root_module": {}}}`)
+	if len(g.Nodes) != 0 || len(g.Edges) != 0 {
+		t.Errorf("graph = %d nodes, %d edges, want empty", len(g.Nodes), len(g.Edges))
+	}
+}
