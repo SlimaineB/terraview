@@ -18,15 +18,15 @@ Each platform gets a `.tar.gz`/`.zip` archive and a raw binary. A `checksums.txt
 
 ```bash
 # Linux amd64 (no GitHub CLI needed)
-VERSION=v0.3.4
+VERSION=v0.3.5
 mkdir -p bin
 curl -sSL -o bin/terraview.tar.gz \
-  "https://github.com/SlimaineB/terraview/releases/download/${VERSION}/terraview-0.3.4-linux-amd64.tar.gz"
+  "https://github.com/SlimaineB/terraview/releases/download/${VERSION}/terraview-0.3.5-linux-amd64.tar.gz"
 tar -xzf bin/terraview.tar.gz -C bin
 ./bin/terraview -version
 ```
 
-Other assets follow the same pattern: `terraview-0.3.4-linux-arm64.tar.gz`, `terraview-0.3.4-darwin-arm64.tar.gz`, `terraview-0.3.4-windows-amd64.zip`. Verify downloads with `checksums.txt` from the same release.
+Other assets follow the same pattern: `terraview-0.3.5-linux-arm64.tar.gz`, `terraview-0.3.5-darwin-arm64.tar.gz`, `terraview-0.3.5-windows-amd64.zip`. Verify downloads with `checksums.txt` from the same release.
 
 On Windows, download the `.zip` and extract it with `Expand-Archive`.
 

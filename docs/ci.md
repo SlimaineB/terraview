@@ -92,8 +92,8 @@ Download the release binary directly (faster than `go build`):
 
 ```bash
 # Linux amd64
-VERSION=v0.3.4
-curl -sSL "https://github.com/SlimaineB/terraview/releases/download/${VERSION}/terraview-0.3.4-linux-amd64.tar.gz" | tar -xz
+VERSION=v0.3.5
+curl -sSL "https://github.com/SlimaineB/terraview/releases/download/${VERSION}/terraview-0.3.5-linux-amd64.tar.gz" | tar -xz
 ./terraview -static -in plan.json -out terraview-report.html
 ```
 
