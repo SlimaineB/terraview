@@ -41,7 +41,7 @@ export default defineConfig({
       title: 'TerraView docs',
       disable404Route: true,
       description:
-        'Turn Terraform plan JSON into an interactive dependency graph with diffs and Atlantis commands. One binary. Any provider.',
+        'Turn Terraform plan JSON into an interactive dependency graph with attribute diffs, multi-project context, and targeted commands. One binary. Any provider.',
       logo: {
         src: './src/assets/logo.svg',
         alt: 'TerraView',

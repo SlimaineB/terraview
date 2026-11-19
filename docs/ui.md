@@ -8,7 +8,7 @@ title: UI guide
 
 - **Search** — filter by resource ID, type, or name
 - **Action filters with counts** — All / Add / Modify / Replace / Destroy / Existing; each chip shows its count and filters the graph when clicked
-- **Atlantis toggle** — switch copied commands between `terraform` and `atlantis` syntax
+- **Command syntax toggle** — switch copied commands between `terraform` and `atlantis` syntax
 - **Theme toggle** — light or dark
 - **Import Plan JSON** — paste `terraform show -json` output
 - **Raw JSON** — open the full plan JSON in a bottom panel

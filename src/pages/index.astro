@@ -37,11 +37,11 @@ const ciCode = `<span class="cy">terraform</span> show -json tfplan > plan.json
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TerraView — Terraform plan preview before Atlantis</title>
-    <meta name="description" content="TerraView turns terraform show -json into an interactive dependency graph with plan diffs and copy-paste Atlantis commands. One binary. Any provider." />
+    <title>TerraView — Terraform plan visualizer</title>
+    <meta name="description" content="Turn terraform show -json into an interactive dependency graph: attribute diffs, targeted commands, multi-project plans, git context, and CI reports. One binary. Any provider." />
     <meta name="theme-color" content="#060a13" />
-    <meta property="og:title" content="TerraView — Terraform plan preview before Atlantis" />
-    <meta property="og:description" content="See exactly what Terraform will add, change, or destroy — with dependencies, diffs, and targeted commands." />
+    <meta property="og:title" content="TerraView — Terraform plan visualizer" />
+    <meta property="og:description" content="See exactly what Terraform will add, change, or destroy — dependencies, diffs, multi-plan context, and targeted commands, locally or in CI." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://slimaineb.github.io/terraview/" />
     <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
@@ -53,9 +53,9 @@ const ciCode = `<span class="cy">terraform</span> show -json tfplan > plan.json
       <section class="container hero">
         <div class="hero-grid">
           <div class="hero-copy">
-            <span class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> Terraform plan preview · no MR round trip</span>
-            <h1>See what Terraform will do <span class="gradient">before Atlantis does.</span></h1>
-            <p class="hero-lede">TerraView turns <code>terraform show -json</code> into an interactive dependency graph with plan diffs and copy-paste Atlantis commands. One binary. Any provider.</p>
+            <span class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> Terraform plan visualizer · local-first</span>
+            <h1>See exactly what Terraform will do <span class="gradient">before you apply.</span></h1>
+            <p class="hero-lede">TerraView turns <code>terraform show -json</code> into an interactive dependency graph with attribute diffs, git context, multi-project plans, and targeted commands. One binary. Any provider.</p>
             <div class="hero-actions">
               <a class="button" href="#getting-started">
                 Get started
@@ -199,7 +199,7 @@ const ciCode = `<span class="cy">terraform</span> show -json tfplan > plan.json
                     <div class="dep"><span class="up">↑</span> aws_vpc.main</div>
                     <div class="dep"><span class="down">↓</span> aws_eks_cluster.app</div>
                     <div class="mock-kicker">Targeted command</div>
-                    <div class="cmd-box">atlantis plan -- -target=aws_subnet.private</div>
+                    <div class="cmd-box">terraform plan -target=aws_subnet.private</div>
                   </aside>
                 </div>
               </div>
@@ -212,16 +212,16 @@ const ciCode = `<span class="cy">terraform</span> show -json tfplan > plan.json
         <div class="container">
           <div class="section-head">
             <div class="kicker"><span class="kicker-dot" aria-hidden="true"></span> Why TerraView</div>
-            <h2>Your plan, without the round trip.</h2>
-            <p>Atlantis is great for approval. It is a slow way to answer "what will this change?". TerraView gives you the answer locally, in seconds.</p>
+            <h2>Your plan, answered locally.</h2>
+            <p>Every change, its dependencies, and the exact command to target it in one fast view — no waiting on a pipeline, no scrolling through thousands of diff lines.</p>
           </div>
           <div class="grid-3">
             <article class="card">
               <div class="card-icon">
                 <Icon name="zap" size={18} />
               </div>
-              <h3>No Atlantis wait</h3>
-              <p>Generate a plan locally, pipe it into TerraView, and inspect the graph before you open the MR.</p>
+              <h3>Seconds, not pipelines</h3>
+              <p>Generate a plan locally, open TerraView, and inspect the graph before you push or open an MR.</p>
             </article>
             <article class="card">
               <div class="card-icon">
@@ -235,7 +235,7 @@ const ciCode = `<span class="cy">terraform</span> show -json tfplan > plan.json
                 <Icon name="layout" size={18} />
               </div>
               <h3>Actionable commands</h3>
-              <p>Copy <code>terraform -target</code> or Atlantis commands for the exact resource you are reviewing.</p>
+              <p>Copy Terraform or Atlantis targets, apply, destroy, and import commands — for one resource or a bulk selection.</p>
             </article>
           </div>
         </div>
@@ -275,7 +275,7 @@ const ciCode = `<span class="cy">terraform</span> show -json tfplan > plan.json
                 <span class="step-num">3</span>
                 <div>
                   <h3>Copy the command</h3>
-                  <p>Click a node to see the diff, dependencies, and the targeted Atlantis command for that resource.</p>
+                  <p>Click a node to see the diff, dependencies, and the targeted Terraform or Atlantis command for that resource.</p>
                 </div>
               </li>
             </ol>
@@ -320,7 +320,7 @@ const ciCode = `<span class="cy">terraform</span> show -json tfplan > plan.json
                 </div>
               </div>
               <div class="example-note">
-                <strong>TerraView sees the chain.</strong> Click <code>aws_subnet.private</code> to inspect the CIDR diff and copy <code>atlantis plan -- -target=aws_subnet.private</code>.
+                <strong>TerraView sees the chain.</strong> Click <code>aws_subnet.private</code> to inspect the CIDR diff and copy <code>terraform plan -target=aws_subnet.private</code> (or the Atlantis variant).
               </div>
             </div>
           </div>
@@ -355,20 +355,38 @@ const ciCode = `<span class="cy">terraform</span> show -json tfplan > plan.json
             </article>
             <article class="feature">
               <div class="feature-icon" aria-hidden="true">
-                <Icon name="terminal" size={16} />
-              </div>
-              <div>
-                <h3>Atlantis commands</h3>
-                <p>Copy plan, apply, destroy, import, and targeted commands per resource.</p>
-              </div>
-            </article>
-            <article class="feature">
-              <div class="feature-icon" aria-hidden="true">
                 <Icon name="search" size={16} />
               </div>
               <div>
                 <h3>Search and action filters</h3>
-                <p>Focus on add, modify, destroy, or existing resources — including a dedicated destroy view.</p>
+                <p>Filter by ID, type, or name and by add, modify, replace, destroy, or existing — with live counts.</p>
+              </div>
+            </article>
+            <article class="feature">
+              <div class="feature-icon" aria-hidden="true">
+                <Icon name="terminal" size={16} />
+              </div>
+              <div>
+                <h3>Targeted commands</h3>
+                <p>Terraform or Atlantis plan, apply, destroy, and import commands — per resource or as one bulk multi-target.</p>
+              </div>
+            </article>
+            <article class="feature">
+              <div class="feature-icon" aria-hidden="true">
+                <Icon name="folder_open" size={16} />
+              </div>
+              <div>
+                <h3>Multi-plan workspace</h3>
+                <p>Switch projects, environments, and workspaces in one UI, with per-plan action counters and branch context.</p>
+              </div>
+            </article>
+            <article class="feature">
+              <div class="feature-icon" aria-hidden="true">
+                <Icon name="git" size={16} />
+              </div>
+              <div>
+                <h3>Commit &amp; MR</h3>
+                <p>Commit, push, and open a GitHub PR or GitLab MR without leaving the plan review.</p>
               </div>
             </article>
             <article class="feature">
@@ -377,16 +395,25 @@ const ciCode = `<span class="cy">terraform</span> show -json tfplan > plan.json
               </div>
               <div>
                 <h3>Static CI reports</h3>
-                <p>Export a single HTML file and attach it to a CI job or review.</p>
+                <p>Export one portable HTML file and attach it to GitHub Actions or GitLab CI.</p>
               </div>
             </article>
             <article class="feature">
               <div class="feature-icon" aria-hidden="true">
-                <Icon name="folder_open" size={16} />
+                <Icon name="laptop" size={16} />
               </div>
               <div>
-                <h3>Multi-plan context</h3>
-                <p>Switch project, environment, and workspace plans in one UI; repo path and branch stay visible.</p>
+                <h3>Local-first input</h3>
+                <p>Read from stdin, a file, or paste raw plan JSON. Plans never leave your machine.</p>
+              </div>
+            </article>
+            <article class="feature">
+              <div class="feature-icon" aria-hidden="true">
+                <Icon name="box" size={16} />
+              </div>
+              <div>
+                <h3>One binary, any provider</h3>
+                <p>No plugins, no cloud SDK, no external dependencies: AWS, Azure, GCP, Kubernetes, Docker, Helm, and more.</p>
               </div>
             </article>
           </div>
@@ -421,8 +448,8 @@ const ciCode = `<span class="cy">terraform</span> show -json tfplan > plan.json
           <div class="cta-panel">
             <div>
               <div class="kicker"><span class="kicker-dot" aria-hidden="true"></span> Ready to see your plan?</div>
-              <h2>Stop waiting for a DAG.</h2>
-              <p>Download TerraView, pipe a plan, and inspect the change in seconds.</p>
+              <h2>Review the whole plan in seconds.</h2>
+              <p>Download TerraView, pipe a plan, and inspect every change with its dependencies.</p>
             </div>
             <div class="cta-actions">
               <a class="button" href="https://github.com/SlimaineB/terraview/releases">Download binary</a>
